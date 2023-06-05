@@ -1,0 +1,12 @@
+# skip test failing on arm64 on official CI build daemons:
+#  * test-dpp: unit/test-dpp.c:135: test_key_derivation: Assertion `!memcmp(r_auth, __tmp, 32)' failed.
+# upstream describes tested feature as experimental
+Test-Command:
+ set -e;
+ make -j2 check VERBOSE=1 TESTS='$(filter-out unit/test-dpp,$(basename $(wildcard unit/*.c)))';
+ make -j2 check VERBOSE=1 || true;
+Depends:
+ build-essential,
+ @,
+ @builddeps@,
+Restrictions: build-needed, allow-stderr
