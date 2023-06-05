@@ -1,0 +1,281 @@
+.\" Man page generated from reStructuredText.
+.
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.TH "IWD.AP" 5 "20 October 2020" "iwd" "Linux Connectivity"
+.SH NAME
+iwd.ap \- Configuration of IWD access points
+.SH NAME
+.sp
+iwd.ap \- Access point provisioning files
+.SH SYNOPSIS
+.sp
+Description of access point provisioning files.
+.SH DESCRIPTION
+.sp
+An access point provisioning file defines the configuration of an IWD access
+point. These files live in \fI$STATE_DIRECTORY\fP/ap (/var/lib/iwd/ap by default).
+They are read when the \fInet.connman.iwd.AccessPoint.StartProfile(ssid)\fP DBus
+method is used.
+.SH FILE FORMAT
+.sp
+See \fIiwd.network\fP for details on the settings file syntax.
+.SH SETTINGS
+.sp
+The settings are split into several categories.  Each category has a group
+associated with it and is described in the corresponding table below.
+.SS General Settings
+.sp
+The group \fB[General]\fP contains general AP configuration.
+.TS
+center;
+|l|l|.
+_
+T{
+Channel
+T}	T{
+Channel number
+.sp
+Optional channel number for the access point to operate on. If omitted
+the channel will be chosen automatically. Channels greater than or equal
+to 36 will select the 5GHz band for the AP to operate on.
+.sp
+Note: Due to regulatory requirements the linux kernel does not allow or
+strictly limits 5GHz use in AP mode while in world roaming. These
+frequencies become available once the country is set, either via IWD\(aqs
+main.conf option \fB[General].Country\fP (see \fBman iwd.config\fP) or
+externally (e.g. iw reg set <CC>). If you are having trouble using 5GHz
+ensure the country is set, and that the desired frequency/channel is
+unrestricted.
+T}
+_
+T{
+RekeyTimeout
+T}	T{
+Timeout for PTK rekeys (seconds)
+.sp
+The time interval at which the AP starts a rekey for a given station. If
+not provided a default value of 0 is used (rekeying is disabled).
+T}
+_
+.TE
+.SS Network Authentication Settings
+.sp
+The group \fB[Security]\fP contains settings for Wi\-Fi security and authentication
+configuration.
+.TS
+center;
+|l|l|.
+_
+T{
+Passphrase
+T}	T{
+8..63 character string
+.sp
+WPA\-PSK Passphrase to be used with this access point.  At least one of
+\fIPassphrase\fP, \fIPreSharedKey\fP must be present.
+T}
+_
+T{
+PreSharedKey
+T}	T{
+64\-character hex\-string
+.sp
+Processed passphrase for this network in the form of a hex\-encoded
+32\-byte pre\-shared key.  Either this or \fIPassphrase\fP must be present.
+T}
+_
+T{
+PairwiseCiphers
+T}	T{
+Comma separated list of pairwise ciphers for the AP supports.
+.sp
+Values can include: TKIP, CCMP, GCMP, GCMP\-256, CCMP\-256
+.sp
+The underlying hardware and IWD\(aqs AP implementation must also support the
+ciphers listed
+T}
+_
+T{
+GroupCipher
+T}	T{
+Group cipher the AP uses
+.sp
+A single cipher value the AP can use as the group cipher. Values are the
+same as pairwise ciphers and the same restrictions apply (hardware and
+IWD implementation must support the cipher)
+T}
+_
+.TE
+.SS IPv4 Network Configuration
+.sp
+The group \fB[IPv4]\fP contains settings for IWD\(aqs built\-in DHCP server.  All
+settings are optional.  They\(aqre used if network configuration was enabled as
+described in \fBiwd.config(5)\fP\&.  Omitting the \fB[IPv4]\fP group disables
+network configuration for this access point so if an all\-defaults DHCP setup
+is desired, the group header line must still be present:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+# Enable network configuration
+[IPv4]
+
+[other groups follow]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.TS
+center;
+|l|l|.
+_
+T{
+Address
+T}	T{
+Local IP address or a comma\-separated list of prefix\-notation addresses
+.sp
+Optional local address pool for the access point and the DHCP server.
+If a single address is provided this address will be set on the AP
+interface and any other DHCP server options will be derived from it
+if not overridden by other settings below.
+.sp
+If a list of addresses and prefix lengths is specified (in the
+\fI<IP>/<prefix\-len>\fP format), a single subnet address will be selected
+from the available space each time this profile is started.  The subnet
+size is based on the \fB[IPv4].Netmask\fP setting.
+.sp
+If \fIAddress\fP is not provided and no IP address is set on the
+interface prior to calling \fIStartProfile\fP the value of the main.conf
+\fB[IPv4].APAddressPool\fP setting will be inherited, which in turn
+defaults to 192.168.0.0/16.
+.sp
+For example, if \fB[IPv4].Netmask\fP is set to 255.255.255.0 and this
+setting, or the global \fIAPAddressPool\fP fallback, is set to
+\fB192.168.0.0/16, 10.0.0.0/22\fP, IWD will select one of the 256 subnets
+with addresses in the 192.168.<0\-255>.0/24 range or one of the 4 subnets
+with addresses in the 10.0.<0\-3>.0/24 range, allowing 270 possible
+subnets.  Defining an address pool larger than the desired subnet gives
+IWD a chance to avoid conflicts if other interfaces on the system use
+dynamically assigned addresses.
+T}
+_
+T{
+Gateway
+T}	T{
+IP Address of gateway
+.sp
+IP address of the gateway to be advertised by DHCP. This will fall back
+to the local IP address if not provided.
+T}
+_
+T{
+Netmask
+T}	T{
+Local netmask of the AP
+.sp
+Defaults to a 28\-bit netmask if not provided.
+T}
+_
+T{
+DNSList
+T}	T{
+List of DNS servers as a comma\-separated IP address list
+.sp
+A list of DNS servers which will be advertised by the DHCP server. If
+not provided no DNS servers will be sent by the DHCP server.
+T}
+_
+T{
+LeaseTime
+T}	T{
+Time limit for DHCP leases in seconds
+.sp
+Override the default lease time.
+T}
+_
+T{
+IPRange
+T}	T{
+Range of IPs given as two addresses separated by a comma
+.sp
+From and to addresses of the range assigned to clients through DHCP.
+If not provided the range from local address + 1 to .254 will be used.
+T}
+_
+.TE
+.SS Wi\-Fi Simple Configuration
+.sp
+The group \fB[WSC]\fP fine\-tunes some Wi\-Fi Simple Configuration local parameters
+(formerly known as WPS, Wi\-Fi Protected Setup.)
+.TS
+center;
+|l|l|.
+_
+T{
+DeviceName
+T}	T{
+1..32\-character string
+.sp
+Optional Device Name string for the AP to advertise as.  Defaults to
+the SSID.
+T}
+_
+T{
+PrimaryDeviceType
+T}	T{
+Subcategory string or a 64\-bit integer
+.sp
+Optional Primary Device Type for the AP to advertise as.  Defaults to
+PC computer.  Can be specified as a lower\-case WSC v2.0.5 subcategory
+string or a 64\-bit integer encoding, from MSB to LSB: the 16\-bit
+category ID, the 24\-bit OUI, the 8\-bit OUI type and the 16\-bit
+subcategory ID.
+T}
+_
+T{
+AuthorizedMACs
+T}	T{
+Comma\-separated MAC address list
+.sp
+Optional list of Authorized MAC addresses for the WSC registrar to
+check on association.  Each address is specified in the
+colon\-hexadecimal notation.  Defaults to no MAC\-based checks.
+T}
+_
+.TE
+.SH SEE ALSO
+.sp
+iwd(8), iwd.network(5)
+.SH AUTHOR
+James Prestwood <prestwoj@gmail.com>
+.SH COPYRIGHT
+2020 Intel Corporation
+.\" Generated by docutils manpage writer.
+.
