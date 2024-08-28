@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([iwd],[2.3])
+AC_INIT([iwd],[2.19])
 
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_AUX_DIR(build-aux)
@@ -25,6 +25,7 @@ AC_PROG_CC_PIE
 AC_PROG_CC_ASAN
 AC_PROG_CC_LSAN
 AC_PROG_CC_UBSAN
+AC_PROG_CC_GCOV
 AC_PROG_INSTALL
 AC_PROG_MKDIR_P
 AC_PROG_LN_S
@@ -37,9 +38,14 @@ LT_INIT([disable-static])
 AC_ARG_ENABLE(optimization, AS_HELP_STRING([--disable-optimization],
 			[disable code optimization through compiler]), [
 	if (test "${enableval}" = "no"); then
-		CFLAGS="$CFLAGS -U_FORTIFY_SOURCE -O0"
+		CFLAGS="$CFLAGS -O0"
 	fi
 ])
+
+if (test "${enable_optimization}" != "no"); then
+	CFLAGS="$CFLAGS -O2"
+	CFLAGS="$CFLAGS -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
+fi
 
 AC_ARG_ENABLE(debug, AS_HELP_STRING([--enable-debug],
 			[enable compiling with debugging information]), [
@@ -48,6 +54,28 @@ AC_ARG_ENABLE(debug, AS_HELP_STRING([--enable-debug],
 		CFLAGS="$CFLAGS -g"
 	fi
 ])
+
+AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],
+			[enable compiling with code coverage information]), [
+	if (test "${enableval}" = "yes" &&
+			test "${ac_cv_prog_cc_profile_arcs}" = "yes" &&
+			test "${ac_cv_prog_cc_test_coverage}" = "yes"); then
+		CFLAGS="$CFLAGS -fprofile-arcs -ftest-coverage"
+	fi
+])
+
+if (test "${enable_gcov}" = "yes"); then
+	AC_CHECK_PROGS(LCOV, [lcov], "no")
+	AC_CHECK_PROGS(GENHTML, [genhtml], "no")
+	if (test "${LCOV}" == "no"); then
+		AC_MSG_ERROR([lcov is required])
+	fi
+	if (test "${GENHTML}" == "no"); then
+		AC_MSG_ERROR([genhtml is required])
+	fi
+fi
+
+AM_CONDITIONAL(GCOV, test "${enable_gcov}" != "no")
 
 AC_ARG_ENABLE(pie, AS_HELP_STRING([--enable-pie],
 			[enable position independent executables flag]), [
@@ -153,11 +181,17 @@ AC_ARG_ENABLE([client], AS_HELP_STRING([--disable-client],
 				[don't install iwctl client utility]),
 					[enable_client=${enableval}])
 if (test "${enable_client}" != "no"); then
-	AC_CHECK_HEADERS(readline/readline.h, enable_readline=yes,
-			AC_MSG_ERROR(readline header files are required))
-	PKG_CHECK_MODULES(READLINE, readline, dummy=yes, READLINE_LIBS=-lreadline)
-	AC_SUBST(READLINE_CFLAGS)
-	AC_SUBST(READLINE_LIBS)
+	if (test "${enable_libedit}" = "yes"); then
+		PKG_CHECK_MODULES(LIBEDIT, libedit >= 3.1, dummy=yes,
+				AC_MSG_ERROR(Editline library is required))
+		AC_SUBST(LIBEDIT_CFLAGS)
+		AC_SUBST(LIBEDIT_LIBS)
+	else
+		PKG_CHECK_MODULES(READLINE, readline, dummy=yes,
+				AC_MSG_ERROR(Readline library is required))
+		AC_SUBST(READLINE_CFLAGS)
+		AC_SUBST(READLINE_LIBS)
+	fi
 fi
 AM_CONDITIONAL(CLIENT, test "${enable_client}" != "no")
 
@@ -263,7 +297,7 @@ if (test "${enable_external_ell}" = "yes"); then
 			test "${enable_monitor}" != "no" ||
 			test "${enable_wired}" = "yes" ||
 			test "${enable_hwsim}" = "yes"); then
-		ell_min_version="0.56"
+		ell_min_version="0.67"
 	else
 		ell_min_version="0.5"
 	fi
@@ -274,6 +308,10 @@ if (test "${enable_external_ell}" = "yes"); then
 fi
 AM_CONDITIONAL(EXTERNAL_ELL, test "${enable_external_ell}" = "yes")
 
+AC_ARG_ENABLE([libedit], AS_HELP_STRING([--enable-libedit],
+				[enable Editline library instead of Readline]),
+					[enable_libedit=${enableval}])
+AM_CONDITIONAL(LIBEDIT, test "${enable_libedit}" = "yes")
 
 AC_ARG_ENABLE([wired], AS_HELP_STRING([--enable-wired],
 				[enable Ethernet authentication support]),

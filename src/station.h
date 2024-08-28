@@ -45,6 +45,7 @@ enum station_state {
 	STATION_STATE_ROAMING,		/* Reassociation */
 	STATION_STATE_FT_ROAMING,	/* Fast transition */
 	STATION_STATE_FW_ROAMING,	/* Firmware roamed by itself */
+	STATION_STATE_NETCONFIG,
 };
 
 enum station_event {
@@ -89,7 +90,7 @@ void station_remove_event_watch(uint32_t id);
 bool station_set_autoconnect(struct station *station, bool autoconnect);
 
 int __station_connect_network(struct station *station, struct network *network,
-				struct scan_bss *bss);
+				struct scan_bss *bss, enum station_state state);
 void station_connect_network(struct station *station, struct network *network,
 				struct scan_bss *bss,
 				struct l_dbus_message *message);

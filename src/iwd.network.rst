@@ -174,6 +174,13 @@ The group ``[Settings]`` contains general settings.
        Properly configured Access Points will typically update this setting
        appropriately via Transition Disable indications.  User customization
        of this value is thus typically not required.
+   * - UseDefaultEccGroup
+     - Values: true, false
+
+       Forces the use of the default ECC group (19) for protocols using ECC
+       (WPA3 and OWE) if set true. If unset IWD will learn the capabilities of
+       the network based on its initial association and retain that setting for
+       the duration of its process lifetime.
 
 Network Authentication Settings
 -------------------------------
@@ -199,6 +206,12 @@ connect to that network.
        required if the *PreSharedKey* is not provided.  If not provided in
        settings, the agent will be asked for the passphrase at connection
        time.
+   * - PasswordIdentifier
+     - string
+
+       An identifer string to be used with the passphrase. This is used for
+       WPA3-Personal (SAE) networks if the security has enabled password
+       identifiers for clients.
    * - PreSharedKey
      - 64 character hex string
 

@@ -392,10 +392,17 @@ static void ap_del_station(struct sta_state *sta, uint16_t reason,
 				bool disassociate)
 {
 	struct ap_state *ap = sta->ap;
+	uint32_t ifindex = netdev_get_ifindex(ap->netdev);
 	struct ap_event_station_removed_data event_data;
 	bool send_event = false;
+	struct l_genl_msg *msg;
+	uint8_t subtype = disassociate ?
+			MPDU_MANAGEMENT_SUBTYPE_DISASSOCIATION :
+			MPDU_MANAGEMENT_SUBTYPE_DEAUTHENTICATION;
 
-	netdev_del_station(ap->netdev, sta->addr, reason, disassociate);
+	msg = nl80211_build_del_station(ifindex, sta->addr, reason, subtype);
+	l_genl_family_send(ap->nl80211, msg, NULL, NULL, NULL);
+
 	sta->associated = false;
 
 	if (sta->rsna) {
@@ -448,7 +455,8 @@ static void ap_del_station(struct sta_state *sta, uint16_t reason,
 		sta->ip_alloc_lease = NULL;
 		l_dhcp_server_expire_by_mac(ap->netconfig_dhcp, sta->addr);
 
-		ap_event_done(ap, prev);
+		if (ap_event_done(ap, prev))
+			return;
 	}
 
 	/*
@@ -1202,7 +1210,7 @@ static size_t ap_build_country_ie(struct ap_state *ap, uint8_t *out_buf,
 	 * and use the same TX power. Any deviation from this results in a new
 	 * channel group.
 	 *
-	 * TODO: 6Ghz requires operating triplets, not subband triplets.
+	 * TODO: 6GHz requires operating triplets, not subband triplets.
 	 */
 	for (i = 0; i < len; i++) {
 		const struct band_freq_attrs *attr = &list[i];
@@ -1240,8 +1248,10 @@ static size_t ap_build_country_ie(struct ap_state *ap, uint8_t *out_buf,
 	}
 
 	/* finish final group */
-	*pos++ = nchans;
-	*pos++ = last->tx_power;
+	if (last) {
+		*pos++ = nchans;
+		*pos++ = last->tx_power;
+	}
 
 	len = pos - out_buf - 2;
 
@@ -1475,7 +1485,7 @@ static void ap_handshake_event(struct handshake_state *hs,
 	}
 	case HANDSHAKE_EVENT_REKEY_COMPLETE:
 		ap_set_sta_rekey_timer(ap, sta);
-		return;
+		break;
 	default:
 		break;
 	}
@@ -1499,14 +1509,19 @@ static void ap_gtk_query_cb(struct l_genl_msg *msg, void *user_data)
 	struct sta_state *sta = user_data;
 	const void *gtk_rsc;
 	uint8_t zero_gtk_rsc[6];
+	int err;
 
 	sta->gtk_query_cmd_id = 0;
 
-	if (l_genl_msg_get_error(msg) < 0)
+	err = l_genl_msg_get_error(msg);
+	if (err == -ENOTSUP)
+		goto zero_rsc;
+	else if (err < 0)
 		goto error;
 
 	gtk_rsc = nl80211_parse_get_key_seq(msg);
 	if (!gtk_rsc) {
+zero_rsc:
 		memset(zero_gtk_rsc, 0, 6);
 		gtk_rsc = zero_gtk_rsc;
 	}
@@ -1643,18 +1658,21 @@ static struct l_genl_msg *ap_build_cmd_new_station(struct sta_state *sta)
 {
 	struct l_genl_msg *msg;
 	uint32_t ifindex = netdev_get_ifindex(sta->ap->netdev);
-	/*
-	 * This should hopefully work both with and without
-	 * NL80211_FEATURE_FULL_AP_CLIENT_STATE.
-	 */
 	struct nl80211_sta_flag_update flags = {
-		.mask = (1 << NL80211_STA_FLAG_AUTHENTICATED) |
-			(1 << NL80211_STA_FLAG_ASSOCIATED) |
-			(1 << NL80211_STA_FLAG_AUTHORIZED) |
+		.mask = (1 << NL80211_STA_FLAG_AUTHORIZED) |
 			(1 << NL80211_STA_FLAG_MFP),
 		.set = (1 << NL80211_STA_FLAG_AUTHENTICATED) |
 			(1 << NL80211_STA_FLAG_ASSOCIATED),
 	};
+
+	/*
+	 * Without this feature nl80211 rejects NEW_STATION if the mask contains
+	 * auth/assoc flags
+	 */
+	if (wiphy_has_feature(netdev_get_wiphy(sta->ap->netdev),
+				NL80211_FEATURE_FULL_AP_CLIENT_STATE))
+		flags.mask |= (1 << NL80211_STA_FLAG_ASSOCIATED) |
+				(1 << NL80211_STA_FLAG_AUTHENTICATED);
 
 	msg = l_genl_msg_new_sized(NL80211_CMD_NEW_STATION, 300);
 
@@ -2946,7 +2964,7 @@ static void ap_handle_new_station(struct ap_state *ap, struct l_genl_msg *msg)
 	uint16_t type;
 	uint16_t len;
 	const void *data;
-	uint8_t mac[6];
+	const uint8_t *mac = NULL;
 	uint8_t *assoc_rsne = NULL;
 
 	if (!l_genl_attr_init(&attr, msg))
@@ -2966,12 +2984,12 @@ static void ap_handle_new_station(struct ap_state *ap, struct l_genl_msg *msg)
 			if (len != 6)
 				goto cleanup;
 
-			memcpy(mac, data, 6);
+			mac = data;
 			break;
 		}
 	}
 
-	if (!assoc_rsne)
+	if (!assoc_rsne || !mac)
 		goto cleanup;
 
 	/*
@@ -3556,7 +3574,7 @@ static bool ap_validate_band_channel(struct ap_state *ap)
 	freq = band_channel_to_freq(ap->channel, ap->band);
 	if (!freq) {
 		l_error("AP invalid band (%s) and channel (%u) combination",
-			(ap->band & BAND_FREQ_5_GHZ) ? "5Ghz" : "2.4GHz",
+			(ap->band & BAND_FREQ_5_GHZ) ? "5GHz" : "2.4GHz",
 			ap->channel);
 		return false;
 	}
@@ -3660,7 +3678,18 @@ static int ap_load_config(struct ap_state *ap, const struct l_settings *config,
 		ap->band = BAND_FREQ_2_4_GHZ;
 	}
 
-	ap->supports_ht = wiphy_get_ht_capabilities(wiphy, ap->band,
+	if (l_settings_has_key(config, "General", "DisableHT")) {
+		bool boolval;
+
+		if (!l_settings_get_bool(config, "General", "DisableHT",
+						&boolval)) {
+			l_error("AP [General].DisableHT not a valid boolean");
+			return -EINVAL;
+		}
+
+		ap->supports_ht = !boolval;
+	} else
+		ap->supports_ht = wiphy_get_ht_capabilities(wiphy, ap->band,
 							NULL) != NULL;
 
 	if (!ap_validate_band_channel(ap)) {

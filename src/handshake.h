@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <asm/byteorder.h>
 #include <linux/types.h>
+#include <ell/cleanup.h>
 
 struct handshake_state;
 enum crypto_cipher;
@@ -102,7 +103,8 @@ struct handshake_state {
 	uint8_t *authenticator_rsnxe;
 	uint8_t *supplicant_rsnxe;
 	uint8_t *mde;
-	uint8_t *fte;
+	uint8_t *authenticator_fte;
+	uint8_t *supplicant_fte;
 	uint8_t *vendor_ies;
 	size_t vendor_ies_len;
 	enum ie_rsn_cipher_suite pairwise_cipher;
@@ -138,17 +140,21 @@ struct handshake_state {
 	bool authenticator_ocvc : 1;
 	bool supplicant_ocvc : 1;
 	bool ext_key_id_capable : 1;
-	bool force_default_owe_group : 1;
+	bool force_default_ecc_group : 1;
 	uint8_t ssid[32];
 	size_t ssid_len;
 	char *passphrase;
+	char *password_identifier;
 	uint8_t r0khid[48];
 	size_t r0khid_len;
 	uint8_t r1khid[6];
 	uint8_t gtk[32];
 	uint8_t gtk_rsc[6];
+	uint8_t igtk[32];
+	uint8_t igtk_rsc[6];
 	uint8_t proto_version : 2;
 	unsigned int gtk_index;
+	unsigned int igtk_index;
 	uint8_t active_tk_index;
 	struct erp_cache_entry *erp_cache;
 	bool support_ip_allocation : 1;
@@ -213,7 +219,11 @@ void handshake_state_set_ssid(struct handshake_state *s,
 					const uint8_t *ssid, size_t ssid_len);
 void handshake_state_set_mde(struct handshake_state *s,
 					const uint8_t *mde);
-void handshake_state_set_fte(struct handshake_state *s, const uint8_t *fte);
+void handshake_state_set_authenticator_fte(struct handshake_state *s,
+						const uint8_t *fte);
+void handshake_state_set_supplicant_fte(struct handshake_state *s,
+						const uint8_t *fte);
+
 void handshake_state_set_vendor_ies(struct handshake_state *s,
 					const struct iovec *iov,
 					size_t n_iovs);
@@ -227,6 +237,8 @@ void handshake_state_set_event_func(struct handshake_state *s,
 					void *user_data);
 void handshake_state_set_passphrase(struct handshake_state *s,
 					const char *passphrase);
+void handshake_state_set_password_identifier(struct handshake_state *s,
+						const char *id);
 bool handshake_state_add_ecc_sae_pt(struct handshake_state *s,
 					const struct l_ecc_point *pt);
 void handshake_state_set_no_rekey(struct handshake_state *s, bool no_rekey);
@@ -269,12 +281,17 @@ void handshake_state_install_igtk(struct handshake_state *s,
 void handshake_state_override_pairwise_cipher(struct handshake_state *s,
 					enum ie_rsn_cipher_suite pairwise);
 
-bool handshake_state_get_pmkid(struct handshake_state *s, uint8_t *out_pmkid);
-
+bool handshake_state_get_pmkid(struct handshake_state *s, uint8_t *out_pmkid,
+				enum l_checksum_type sha);
+bool handshake_state_pmkid_matches(struct handshake_state *s,
+					const uint8_t *check);
 bool handshake_decode_fte_key(struct handshake_state *s, const uint8_t *wrapped,
 				size_t key_len, uint8_t *key_out);
 
 void handshake_state_set_gtk(struct handshake_state *s, const uint8_t *key,
+				unsigned int key_index, const uint8_t *rsc);
+
+void handshake_state_set_igtk(struct handshake_state *s, const uint8_t *key,
 				unsigned int key_index, const uint8_t *rsc);
 
 void handshake_state_set_chandef(struct handshake_state *s,
@@ -296,3 +313,7 @@ const uint8_t *handshake_util_find_pmkid_kde(const uint8_t *data,
 					size_t data_len);
 void handshake_util_build_gtk_kde(enum crypto_cipher cipher, const uint8_t *key,
 					unsigned int key_index, uint8_t *to);
+void handshake_util_build_igtk_kde(enum crypto_cipher cipher, const uint8_t *key,
+					unsigned int key_index, uint8_t *to);
+
+DEFINE_CLEANUP_FUNC(handshake_state_free);

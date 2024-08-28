@@ -194,7 +194,7 @@ void display_refresh_set_cmd(const char *family, const char *entity,
 
 		for (i = 0; i < argc; i++) {
 			bool needs_quotes = false;
-			char *p = argv[i];
+			char *p;
 
 			for (p = argv[i]; *p != '\0'; p++) {
 				if (*p != ' ')
@@ -230,7 +230,8 @@ static void display_refresh_check_feasibility(void)
 {
 	const struct winsize ws;
 
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0)
+		return;
 
 	if (ws.ws_col < LINE_LEN - 1) {
 		if (display_refresh.enabled) {
@@ -564,8 +565,6 @@ void display_table_row(const char *margin, unsigned int ncolumns, ...)
 		str += entry_append(e, str);
 	}
 
-	va_end(va);
-
 	display("%s\n", buf);
 	str = buf;
 
@@ -591,6 +590,8 @@ void display_table_row(const char *margin, unsigned int ncolumns, ...)
 	}
 
 done:
+	va_end(va);
+
 	for (i = 0; i < ncolumns; i++) {
 		if (entries[i].color)
 			l_free(entries[i].color);
@@ -633,7 +634,7 @@ static void display_completion_matches(char **matches, int num_matches,
 	l_free(prompt);
 
 	for (index = 1, line_used = 0; matches[index]; index++) {
-		if ((line_used + max_length) > LINE_LEN) {
+		if ((line_used + max_length + 1) >= (LINE_LEN - 1)) {
 			strcpy(&line[line_used], "\n");
 
 			display_text(line);
@@ -890,7 +891,8 @@ void display_agent_prompt_release(const char *label)
 
 void display_quit(void)
 {
-	rl_crlf();
+	if (command_is_interactive_mode())
+		rl_crlf();
 }
 
 static void window_change_signal_handler(void *user_data)

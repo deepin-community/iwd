@@ -481,6 +481,52 @@ const char *ie_rsn_cipher_suite_to_string(enum ie_rsn_cipher_suite suite)
 	return NULL;
 }
 
+uint32_t ie_rsn_akm_suite_to_akm(enum ie_rsn_akm_suite akm)
+{
+	switch (akm) {
+	case IE_RSN_AKM_SUITE_8021X:
+		return CRYPTO_AKM_8021X;
+	case IE_RSN_AKM_SUITE_PSK:
+		return CRYPTO_AKM_PSK;
+	case IE_RSN_AKM_SUITE_FT_OVER_8021X:
+		return CRYPTO_AKM_FT_OVER_8021X;
+	case IE_RSN_AKM_SUITE_FT_USING_PSK:
+		return CRYPTO_AKM_FT_USING_PSK;
+	case IE_RSN_AKM_SUITE_8021X_SHA256:
+		return CRYPTO_AKM_8021X_SHA256;
+	case IE_RSN_AKM_SUITE_PSK_SHA256:
+		return CRYPTO_AKM_PSK_SHA256;
+	case IE_RSN_AKM_SUITE_TDLS:
+		return CRYPTO_AKM_TDLS;
+	case IE_RSN_AKM_SUITE_SAE_SHA256:
+		return CRYPTO_AKM_SAE_SHA256;
+	case IE_RSN_AKM_SUITE_FT_OVER_SAE_SHA256:
+		return CRYPTO_AKM_FT_OVER_SAE_SHA256;
+	case IE_RSN_AKM_SUITE_AP_PEER_KEY_SHA256:
+		return CRYPTO_AKM_AP_PEER_KEY_SHA256;
+	case IE_RSN_AKM_SUITE_8021X_SUITE_B_SHA256:
+		return CRYPTO_AKM_8021X_SUITE_B_SHA256;
+	case IE_RSN_AKM_SUITE_8021X_SUITE_B_SHA384:
+		return CRYPTO_AKM_8021X_SUITE_B_SHA384;
+	case IE_RSN_AKM_SUITE_FT_OVER_8021X_SHA384:
+		return CRYPTO_AKM_FT_OVER_8021X_SHA384;
+	case IE_RSN_AKM_SUITE_FILS_SHA256:
+		return CRYPTO_AKM_FILS_SHA256;
+	case IE_RSN_AKM_SUITE_FILS_SHA384:
+		return CRYPTO_AKM_FILS_SHA384;
+	case IE_RSN_AKM_SUITE_FT_OVER_FILS_SHA256:
+		return CRYPTO_AKM_FT_OVER_FILS_SHA256;
+	case IE_RSN_AKM_SUITE_FT_OVER_FILS_SHA384:
+		return CRYPTO_AKM_FT_OVER_FILS_SHA384;
+	case IE_RSN_AKM_SUITE_OWE:
+		return CRYPTO_AKM_OWE;
+	case IE_RSN_AKM_SUITE_OSEN:
+		return CRYPTO_AKM_OSEN;
+	}
+
+	return 0;
+}
+
 /* 802.11, Section 8.4.2.27.2 */
 static bool ie_parse_cipher_suite(const uint8_t *data,
 					enum ie_rsn_cipher_suite *out)
@@ -1132,9 +1178,6 @@ static int build_ciphers_common(const struct ie_rsn_info *info, uint8_t *to,
 	countptr = to + pos;
 	pos += 2;
 
-	akm_suite = IE_RSN_AKM_SUITE_8021X;
-	count = 0;
-
 	for (count = 0, akm_suite = IE_RSN_AKM_SUITE_8021X;
 			akm_suite <= IE_RSN_AKM_SUITE_OSEN;
 				akm_suite <<= 1) {
@@ -1462,32 +1505,6 @@ bool is_ie_wpa_ie(const uint8_t *data, uint8_t len)
 	if ((!memcmp(data, microsoft_oui, 3) && data[3] == 1 &&
 						l_get_le16(data + 4) == 1))
 		return true;
-
-	return false;
-}
-
-/*
- * List of vendor OUIs (prefixed with a length byte) which require forcing
- * the default SAE group.
- */
-static const uint8_t use_default_sae_group_ouis[][5] = {
-	{ 0x04, 0xf4, 0xf5, 0xe8, 0x05 },
-};
-
-bool is_ie_default_sae_group_oui(const uint8_t *data, uint16_t len)
-{
-	unsigned int i;
-	const uint8_t *oui;
-
-	for (i = 0; i < L_ARRAY_SIZE(use_default_sae_group_ouis); i++) {
-		oui = use_default_sae_group_ouis[i];
-
-		if (len < oui[0])
-			continue;
-
-		if (!memcmp(oui + 1, data, oui[0]))
-			return true;
-	}
 
 	return false;
 }

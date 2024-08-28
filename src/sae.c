@@ -511,7 +511,29 @@ static struct l_ecc_point *sae_compute_pwe(const struct l_ecc_curve *curve,
 		return NULL;
 	}
 
-	pwe = l_ecc_point_from_data(curve, !is_odd + 2, x, bytes);
+	/*
+	 * The 802.11 spec requires the point be solved unambiguously (since
+	 * solving for Y results in two solutions). The correct Y value
+	 * is chosen based on the LSB of the pwd-seed:
+	 *
+	 *     if (LSB(y) == LSB(pwd-seed))
+	 *     then
+	 *         PWE = (x, y)
+	 *     else
+	 *         PWE = (x, p-y)
+	 *
+	 * The ELL API (somewhat hidden from view here) automatically
+	 * performs a subtraction (P - Y) when:
+	 *     - Y is even and BIT1
+	 *     - Y is odd and BIT0
+	 *
+	 * So we choose the point type which matches the parity of
+	 * pwd-seed. This means a subtraction will be performed (P - Y)
+	 * if the parity of pwd-seed and the computed Y do not match.
+	 */
+	pwe = l_ecc_point_from_data(curve,
+				is_odd ? L_ECC_POINT_TYPE_COMPRESSED_BIT1 :
+				L_ECC_POINT_TYPE_COMPRESSED_BIT0, x, bytes);
 	if (!pwe)
 		l_error("computing y failed, was x quadratic residue?");
 
@@ -615,6 +637,14 @@ old_commit:
 		ie_tlv_builder_set_data(&builder, sm->token, sm->token_len);
 	}
 
+	if (sm->sae_type == CRYPTO_SAE_HASH_TO_ELEMENT &&
+					sm->handshake->password_identifier) {
+		ie_tlv_builder_next(&builder, IE_TYPE_PASSWORD_IDENTIFIER);
+		ie_tlv_builder_set_data(&builder,
+				sm->handshake->password_identifier,
+				strlen(sm->handshake->password_identifier));
+	}
+
 	ie_tlv_builder_finalize(&builder, &len);
 
 	return ptr - commit + len;
@@ -652,10 +682,8 @@ static bool sae_send_confirm(struct sae_sm *sm)
 	return true;
 }
 
-static int sae_process_commit(struct sae_sm *sm, const uint8_t *from,
-					const uint8_t *frame, size_t len)
+static int sae_calculate_keys(struct sae_sm *sm)
 {
-	uint8_t *ptr = (uint8_t *) frame;
 	unsigned int nbytes = l_ecc_curve_get_scalar_bytes(sm->curve);
 	enum l_checksum_type hash =
 		crypto_sae_hash_from_ecc_prime_len(sm->sae_type, nbytes);
@@ -670,39 +698,6 @@ static int sae_process_commit(struct sae_sm *sm, const uint8_t *from,
 	uint8_t tmp[L_ECC_SCALAR_MAX_BYTES];
 	struct l_ecc_scalar *tmp_scalar;
 	struct l_ecc_scalar *order;
-
-	ptr += 2;
-
-	sm->p_scalar = l_ecc_scalar_new(sm->curve, ptr, nbytes);
-	if (!sm->p_scalar) {
-		l_error("Server sent invalid P_Scalar during commit");
-		return sae_reject(sm, SAE_STATE_COMMITTED,
-				MMPDU_STATUS_CODE_UNSUPP_FINITE_CYCLIC_GROUP);
-	}
-
-	ptr += nbytes;
-
-	sm->p_element = l_ecc_point_from_data(sm->curve, L_ECC_POINT_TYPE_FULL,
-						ptr, nbytes * 2);
-	if (!sm->p_element) {
-		l_error("Server sent invalid P_Element during commit");
-		return sae_reject(sm, SAE_STATE_COMMITTED,
-				MMPDU_STATUS_CODE_UNSUPP_FINITE_CYCLIC_GROUP);
-	}
-
-	/*
-	 * If they match those sent as part of the protocol instance's own
-	 * SAE Commit message, the frame shall be silently discarded (because
-	 * it is evidence of a reflection attack) and the t0 (retransmission)
-	 * timer shall be set.
-	 */
-	if (l_ecc_scalars_are_equal(sm->p_scalar, sm->scalar) ||
-			l_ecc_points_are_equal(sm->p_element, sm->element)) {
-		l_warn("peer scalar or element matched own, discarding frame");
-		return -ENOMSG;
-	}
-
-	sm->sc++;
 
 	/*
 	 * K = scalar-op(rand, (element-op(scalar-op(peer-commit-scalar, PWE),
@@ -792,6 +787,54 @@ static int sae_process_commit(struct sae_sm *sm, const uint8_t *from,
 	/* don't set the handshakes pmkid until confirm is verified */
 	memcpy(sm->pmkid, tmp, 16);
 
+	return 0;
+}
+
+
+static int sae_process_commit(struct sae_sm *sm, const uint8_t *from,
+					const uint8_t *frame, size_t len)
+{
+	uint8_t *ptr = (uint8_t *) frame;
+	unsigned int nbytes = l_ecc_curve_get_scalar_bytes(sm->curve);
+	int r;
+
+	ptr += 2;
+
+	sm->p_scalar = l_ecc_scalar_new(sm->curve, ptr, nbytes);
+	if (!sm->p_scalar) {
+		l_error("Server sent invalid P_Scalar during commit");
+		return sae_reject(sm, SAE_STATE_COMMITTED,
+				MMPDU_STATUS_CODE_UNSUPP_FINITE_CYCLIC_GROUP);
+	}
+
+	ptr += nbytes;
+
+	sm->p_element = l_ecc_point_from_data(sm->curve, L_ECC_POINT_TYPE_FULL,
+						ptr, nbytes * 2);
+	if (!sm->p_element) {
+		l_error("Server sent invalid P_Element during commit");
+		return sae_reject(sm, SAE_STATE_COMMITTED,
+				MMPDU_STATUS_CODE_UNSUPP_FINITE_CYCLIC_GROUP);
+	}
+
+	/*
+	 * If they match those sent as part of the protocol instance's own
+	 * SAE Commit message, the frame shall be silently discarded (because
+	 * it is evidence of a reflection attack) and the t0 (retransmission)
+	 * timer shall be set.
+	 */
+	if (l_ecc_scalars_are_equal(sm->p_scalar, sm->scalar) ||
+			l_ecc_points_are_equal(sm->p_element, sm->element)) {
+		l_warn("peer scalar or element matched own, discarding frame");
+		return -ENOMSG;
+	}
+
+	sm->sc++;
+
+	r = sae_calculate_keys(sm);
+	if (r != 0)
+		return r;
+
 	if (!sae_send_confirm(sm))
 		return -EPROTO;
 
@@ -844,9 +887,14 @@ static int sae_process_confirm(struct sae_sm *sm, const uint8_t *from,
 
 	sm->state = SAE_STATE_ACCEPTED;
 
-	sae_debug("Sending Associate to "MAC, MAC_STR(sm->handshake->aa));
-
-	sm->tx_assoc(sm->user_data);
+	if (!sm->handshake->authenticator) {
+		sae_debug("Sending Associate to "
+				MAC, MAC_STR(sm->handshake->aa));
+		sm->tx_assoc(sm->user_data);
+	} else {
+		if (!sae_send_confirm(sm))
+			return -EPROTO;
+	}
 
 	return 0;
 }
@@ -996,16 +1044,37 @@ static int sae_verify_committed(struct sae_sm *sm, uint16_t transaction,
 	unsigned int skip;
 	struct ie_tlv_iter iter;
 
-	/*
-	 * Upon receipt of a Con event...
-	 * Then the protocol instance checks the value of Sync. If it
-	 * is greater than dot11RSNASAESync, the protocol instance shall send a
-	 * Del event to the parent process and transition back to Nothing state.
-	 * If Sync is not greater than dot11RSNASAESync, the protocol instance
-	 * shall increment Sync, transmit the last SAE Commit message sent to
-	 * the peer...
-	 */
-	if (transaction == SAE_STATE_CONFIRMED) {
+	if (sm->handshake->authenticator &&
+			transaction == SAE_STATE_CONFIRMED) {
+		enum l_checksum_type hash =
+			crypto_sae_hash_from_ecc_prime_len(sm->sae_type,
+				l_ecc_curve_get_scalar_bytes(sm->curve));
+		size_t hash_len = l_checksum_digest_length(hash);
+
+		if (len < hash_len + 2) {
+			l_error("SAE: Confirm packet too short");
+			return -EBADMSG;
+		}
+
+		/*
+		 * TODO: Add extra functionality such as supporting
+		 * anti-clogging tokens and tracking rejected groups. Note
+		 * that the cryptographic confirm field value will be checked
+		 * at a later point.
+		 */
+
+		return 0;
+	} else if (transaction == SAE_STATE_CONFIRMED) {
+		/*
+		 * Upon receipt of a Con event...
+		 * Then the protocol instance checks the value of Sync. If it
+		 * is greater than dot11RSNASAESync, the protocol instance
+		 * shall send a Del event to the parent process and transition
+		 * back to Nothing state.
+		 * If Sync is not greater than dot11RSNASAESync, the protocol
+		 * instance shall increment Sync, transmit the last SAE Commit
+		 * message sent to the peer...
+		 */
 		if (sm->sync > SAE_SYNC_MAX)
 			return -ETIMEDOUT;
 
@@ -1074,11 +1143,19 @@ static int sae_verify_committed(struct sae_sm *sm, uint16_t transaction,
 	 * If the Status is some other nonzero value, the frame shall be
 	 * silently discarded and the t0 (retransmission) timer shall be set.
 	 */
-	if (status != 0 && status != MMPDU_STATUS_CODE_SAE_HASH_TO_ELEMENT)
+	switch (status) {
+	case 0:
+	case MMPDU_STATUS_CODE_SAE_HASH_TO_ELEMENT:
+		if (status != sae_status_code(sm))
+			return -EBADMSG;
+		break;
+	case MMPDU_STATUS_CODE_UNKNOWN_PASSWORD_IDENTIFIER:
+		sae_debug("Incorrect password identifier, check "
+				"[Security].PasswordIdentifier");
+		/* fall through */
+	default:
 		return -ENOMSG;
-
-	if (status != sae_status_code(sm))
-		return -EBADMSG;
+	}
 
 	if (len < 2)
 		return -EBADMSG;
@@ -1421,13 +1498,6 @@ bool sae_sm_is_h2e(struct auth_proto *ap)
 	return sm->sae_type != CRYPTO_SAE_LOOPING;
 }
 
-void sae_sm_set_force_group_19(struct auth_proto *ap)
-{
-	struct sae_sm *sm = l_container_of(ap, struct sae_sm, ap);
-
-	sm->force_default_group = true;
-}
-
 static void sae_free(struct auth_proto *ap)
 {
 	struct sae_sm *sm = l_container_of(ap, struct sae_sm, ap);
@@ -1463,6 +1533,7 @@ struct auth_proto *sae_sm_new(struct handshake_state *hs,
 	sm->user_data = user_data;
 	sm->handshake = hs;
 	sm->state = SAE_STATE_NOTHING;
+	sm->force_default_group = hs->force_default_ecc_group;
 
 	sm->ap.start = sae_start;
 	sm->ap.free = sae_free;

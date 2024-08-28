@@ -122,7 +122,7 @@ bool prf_plus_sha1(const void *key, size_t key_len,
 		const void *data, size_t data_len, void *output, size_t size);
 
 bool prf_plus(enum l_checksum_type type, const void *key, size_t key_len,
-		const char *label, void *out, size_t out_len,
+		void *out, size_t out_len,
 		size_t n_extra, ...);
 
 bool hkdf_extract(enum l_checksum_type type, const void *key, size_t key_len,
@@ -154,9 +154,10 @@ bool crypto_derive_ft_ptk(const uint8_t *pmk_r1, const uint8_t *pmk_r1_name,
 				bool sha384, uint8_t *out_ptk, size_t ptk_len,
 				uint8_t *out_ptk_name);
 
-bool crypto_derive_pmkid(const uint8_t *pmk,
+bool crypto_derive_pmkid(const uint8_t *pmk, size_t key_len,
 				const uint8_t *addr1, const uint8_t *addr2,
-				uint8_t *out_pmkid, bool use_sha256);
+				uint8_t *out_pmkid,
+				enum l_checksum_type checksum);
 
 enum crypto_sae {
 	CRYPTO_SAE_LOOPING,

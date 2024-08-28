@@ -1,3 +1,4 @@
+'\" t
 .\" Man page generated from reStructuredText.
 .
 .
@@ -201,6 +202,17 @@ appropriately via Transition Disable indications.  User customization
 of this value is thus typically not required.
 T}
 _
+T{
+UseDefaultEccGroup
+T}	T{
+Values: true, false
+.sp
+Forces the use of the default ECC group (19) for protocols using ECC
+(WPA3 and OWE) if set true. If unset IWD will learn the capabilities of
+the network based on its initial association and retain that setting for
+the duration of its process lifetime.
+T}
+_
 .TE
 .SS Network Authentication Settings
 .sp
@@ -224,6 +236,16 @@ Required when connecting to WPA3\-Personal (SAE) networks.  Also
 required if the \fIPreSharedKey\fP is not provided.  If not provided in
 settings, the agent will be asked for the passphrase at connection
 time.
+T}
+_
+T{
+PasswordIdentifier
+T}	T{
+string
+.sp
+An identifer string to be used with the passphrase. This is used for
+WPA3\-Personal (SAE) networks if the security has enabled password
+identifiers for clients.
 T}
 _
 T{
@@ -608,14 +630,12 @@ format (in this example the PEM is named \(aqmy_ca_cert\(aq):
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [@pem@my_ca_cert]
 \-\-\-\-\- BEGIN CERTIFICATE \-\-\-\-\-
 <PEM data>
 \-\-\-\-\- END CERTIFICATE \-\-\-\-\-
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -634,62 +654,53 @@ The following are some examples of common configurations
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [Settings]
 Hidden=true
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Pre\-Shared Key (PSK)
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [Security]
 Passphrase=secret123
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS PWD
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [Security]
 EAP\-Method=PWD
 EAP\-Identity=user@domain.com
 EAP\-Password=secret123
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS TLS
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [Security]
 EAP\-Method=TLS
 EAP\-TLS\-ClientCert=/certs/client\-cert.pem
 EAP\-TLS\-ClientKey=/certs/client\-key.pem
 EAP\-TLS\-CACert=/certs/ca\-cert.pem
 EAP\-TLS\-ServerDomainMask=*.domain.com
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS TTLS + PAP
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [Security]
 EAP\-Method=TTLS
 EAP\-Identity=open@identity.com
@@ -698,16 +709,14 @@ EAP\-TTLS\-Phase2\-Method=Tunneled\-PAP
 EAP\-TTLS\-Phase2\-Identity=username
 EAP\-TTLS\-Phase2\-Password=password
 EAP\-TTLS\-ServerDomainMask=*.domain.com
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS PEAP + MSCHAPv2
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [Security]
 EAP\-Method=PEAP
 EAP\-Identity=open@identity.com
@@ -716,8 +725,7 @@ EAP\-PEAP\-Phase2\-Method=MSCHAPV2
 EAP\-PEAP\-Phase2\-Identity=username
 EAP\-PEAP\-Phase2\-Password=password
 EAP\-PEAP\-ServerDomainMask=*.domain.com
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH SEE ALSO

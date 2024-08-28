@@ -71,6 +71,12 @@ static unsigned int wiphy_dump_id;
 enum driver_flag {
 	DEFAULT_IF = 0x1,
 	FORCE_PAE = 0x2,
+	POWER_SAVE_DISABLE = 0x4,
+};
+
+struct driver_flag_name {
+	const char *name;
+	enum driver_flag flag;
 };
 
 struct driver_info {
@@ -93,6 +99,12 @@ static const struct driver_info driver_infos[] = {
 	{ "bcmsdh_sdmmc",    DEFAULT_IF },
 };
 
+static const struct driver_flag_name driver_flag_names[] = {
+	{ "DefaultInterface", DEFAULT_IF },
+	{ "ForcePae",         FORCE_PAE },
+	{ "PowerSaveDisable", POWER_SAVE_DISABLE },
+};
+
 struct wiphy {
 	uint32_t id;
 	char name[20];
@@ -111,7 +123,7 @@ struct wiphy {
 	char *model_str;
 	char *vendor_str;
 	char *driver_str;
-	const struct driver_info *driver_info;
+	uint32_t driver_flags;
 	struct watchlist state_watches;
 	uint8_t extended_capabilities[EXT_CAP_LEN + 2]; /* max bitmap size + IE header */
 	uint8_t *iftype_extended_capabilities[NUM_NL80211_IFTYPES];
@@ -126,7 +138,6 @@ struct wiphy {
 
 	bool support_scheduled_scan:1;
 	bool support_rekey_offload:1;
-	bool support_adhoc_rsn:1;
 	bool support_qos_set_map:1;
 	bool support_cmds_auth_assoc:1;
 	bool support_fw_roam:1;
@@ -237,6 +248,9 @@ static bool wiphy_can_connect_sae(struct wiphy *wiphy)
 		 *
 		 * TODO: No support for CMD_EXTERNAL_AUTH yet.
 		 */
+		l_warn("SAE unsupported: %s needs CMD_EXTERNAL_AUTH for SAE",
+			wiphy->driver_str);
+
 		return false;
 	}
 
@@ -301,8 +315,10 @@ enum ie_rsn_akm_suite wiphy_select_akm(struct wiphy *wiphy,
 		if (ie_rsne_is_wpa3_personal(info)) {
 			l_debug("Network is WPA3-Personal...");
 
-			if (!wiphy_can_connect_sae(wiphy))
+			if (!wiphy_can_connect_sae(wiphy)) {
+				l_debug("Can't use SAE, trying WPA2");
 				goto wpa2_personal;
+			}
 
 			if (info->akm_suites &
 					IE_RSN_AKM_SUITE_FT_OVER_SAE_SHA256)
@@ -543,7 +559,7 @@ const struct band_freq_attrs *wiphy_get_frequency_info_list(
 	return bandp->freq_attrs;
 }
 
-bool wiphy_band_is_disabled(const struct wiphy *wiphy, enum band_freq band)
+int wiphy_band_is_disabled(const struct wiphy *wiphy, enum band_freq band)
 {
 	struct band_freq_attrs attr;
 	unsigned int i;
@@ -551,7 +567,7 @@ bool wiphy_band_is_disabled(const struct wiphy *wiphy, enum band_freq band)
 
 	bandp = wiphy_get_band(wiphy, band);
 	if (!bandp)
-		return true;
+		return -ENOTSUP;
 
 	for (i = 0; i < bandp->freqs_len; i++) {
 		attr = bandp->freq_attrs[i];
@@ -560,10 +576,10 @@ bool wiphy_band_is_disabled(const struct wiphy *wiphy, enum band_freq band)
 			continue;
 
 		if (!attr.disabled)
-			return false;
+			return 0;
 	}
 
-	return true;
+	return 1;
 }
 
 bool wiphy_supports_probe_resp_offload(struct wiphy *wiphy)
@@ -650,16 +666,6 @@ uint32_t wiphy_get_max_roc_duration(struct wiphy *wiphy)
 	return wiphy->max_roc_duration;
 }
 
-bool wiphy_supports_adhoc_rsn(struct wiphy *wiphy)
-{
-	return wiphy->support_adhoc_rsn;
-}
-
-bool wiphy_can_offchannel_tx(struct wiphy *wiphy)
-{
-	return wiphy->offchannel_tx_ok;
-}
-
 bool wiphy_supports_qos_set_map(struct wiphy *wiphy)
 {
 	return wiphy->support_qos_set_map;
@@ -685,8 +691,7 @@ bool wiphy_uses_default_if(struct wiphy *wiphy)
 	if (!wiphy_get_driver(wiphy))
 		return true;
 
-	if (wiphy->driver_info &&
-			wiphy->driver_info->flags & DEFAULT_IF)
+	if (wiphy->driver_flags & DEFAULT_IF)
 		return true;
 
 	return false;
@@ -697,12 +702,8 @@ bool wiphy_control_port_enabled(struct wiphy *wiphy)
 	const struct l_settings *settings = iwd_get_config();
 	bool enabled;
 
-	if (wiphy->driver_info &&
-			wiphy->driver_info->flags & FORCE_PAE) {
-		l_info("Not using Control Port due to driver quirks: %s",
-				wiphy_get_driver(wiphy));
+	if (wiphy->driver_flags & FORCE_PAE)
 		return false;
-	}
 
 	if (!wiphy_has_ext_feature(wiphy,
 			NL80211_EXT_FEATURE_CONTROL_PORT_OVER_NL80211))
@@ -715,9 +716,12 @@ bool wiphy_control_port_enabled(struct wiphy *wiphy)
 	return enabled;
 }
 
-const uint8_t *wiphy_get_permanent_address(struct wiphy *wiphy)
+bool wiphy_power_save_disabled(struct wiphy *wiphy)
 {
-	return wiphy->permanent_addr;
+	if (wiphy->driver_flags & POWER_SAVE_DISABLE)
+		return true;
+
+	return false;
 }
 
 const uint8_t *wiphy_get_extended_capabilities(struct wiphy *wiphy,
@@ -797,12 +801,13 @@ void wiphy_generate_random_address(struct wiphy *wiphy, uint8_t addr[static 6])
 	wiphy_address_constrain(wiphy, addr);
 }
 
-void wiphy_generate_address_from_ssid(struct wiphy *wiphy, const char *ssid,
+void wiphy_generate_address_from_ssid(struct wiphy *wiphy,
+					const uint8_t *ssid, size_t ssid_len,
 					uint8_t addr[static 6])
 {
 	struct l_checksum *sha = l_checksum_new(L_CHECKSUM_SHA256);
 
-	l_checksum_update(sha, ssid, strlen(ssid));
+	l_checksum_update(sha, ssid, ssid_len);
 	l_checksum_update(sha, wiphy->permanent_addr,
 				sizeof(wiphy->permanent_addr));
 	l_checksum_get_digest(sha, addr, mac_randomize_bytes);
@@ -828,7 +833,7 @@ bool wiphy_constrain_freq_set(const struct wiphy *wiphy,
 		if (!band)
 			continue;
 
-		for (i = 0; i < band->freqs_len; i++) {
+		for (i = 1; i <= band->freqs_len; i++) {
 			uint32_t freq;
 
 			if (!band->freq_attrs[i].supported)
@@ -984,6 +989,7 @@ int wiphy_estimate_data_rate(struct wiphy *wiphy,
 	const void *he_capabilities = NULL;
 	const struct band *bandp;
 	enum band_freq band;
+	int ret;
 
 	if (band_freq_to_channel(bss->frequency, &band) == 0)
 		return -ENOTSUP;
@@ -1000,7 +1006,7 @@ int wiphy_estimate_data_rate(struct wiphy *wiphy,
 		switch (tag) {
 		case IE_TYPE_SUPPORTED_RATES:
 			if (iter.len > 8)
-				return -EBADMSG;
+				continue;
 
 			supported_rates = iter.data - 2;
 			break;
@@ -1009,31 +1015,34 @@ int wiphy_estimate_data_rate(struct wiphy *wiphy,
 			break;
 		case IE_TYPE_HT_CAPABILITIES:
 			if (iter.len != 26)
-				return -EBADMSG;
+				continue;
 
 			ht_capabilities = iter.data - 2;
 			break;
 		case IE_TYPE_HT_OPERATION:
 			if (iter.len != 22)
-				return -EBADMSG;
+				continue;
 
 			ht_operation = iter.data - 2;
 			break;
 		case IE_TYPE_VHT_CAPABILITIES:
 			if (iter.len != 12)
-				return -EBADMSG;
+				continue;
 
 			vht_capabilities = iter.data - 2;
 			break;
 		case IE_TYPE_VHT_OPERATION:
 			if (iter.len != 5)
-				return -EBADMSG;
+				continue;
 
 			vht_operation = iter.data - 2;
 			break;
 		case IE_TYPE_HE_CAPABILITIES:
-			if (!ie_validate_he_capabilities(iter.data, iter.len))
-				return -EBADMSG;
+			if (!ie_validate_he_capabilities(iter.data, iter.len)) {
+				l_warn("invalid HE capabilities for "MAC,
+					MAC_STR(bss->addr));
+				continue;
+			}
 
 			he_capabilities = iter.data;
 			break;
@@ -1042,26 +1051,39 @@ int wiphy_estimate_data_rate(struct wiphy *wiphy,
 		}
 	}
 
-	if (!band_estimate_he_rx_rate(bandp, he_capabilities,
+	ret = band_estimate_he_rx_rate(bandp, he_capabilities,
 					bss->signal_strength / 100,
-					out_data_rate))
+					out_data_rate);
+	if (!ret)
 		return 0;
+	else if (ret != -ENOTSUP && ret != -ENETUNREACH)
+		l_warn("error parsing HE capabilities");
 
-	if (!band_estimate_vht_rx_rate(bandp, vht_capabilities, vht_operation,
+	ret = band_estimate_vht_rx_rate(bandp, vht_capabilities, vht_operation,
 					ht_capabilities, ht_operation,
 					bss->signal_strength / 100,
-					out_data_rate))
+					out_data_rate);
+	if (!ret)
 		return 0;
+	else if (ret != -ENOTSUP && ret != -ENETUNREACH)
+		l_warn("error parsing VHT capabilities");
 
-	if (!band_estimate_ht_rx_rate(bandp, ht_capabilities, ht_operation,
+	ret = band_estimate_ht_rx_rate(bandp, ht_capabilities, ht_operation,
 					bss->signal_strength / 100,
-					out_data_rate))
+					out_data_rate);
+	if (!ret)
 		return 0;
+	else if (ret != -ENOTSUP && ret != -ENETUNREACH)
+		l_warn("error parsing HT capabilities");
 
-	return band_estimate_nonht_rate(bandp, supported_rates,
+	ret = band_estimate_nonht_rate(bandp, supported_rates,
 						ext_supported_rates,
 						bss->signal_strength / 100,
 						out_data_rate);
+	if (ret != 0 && ret != -ENOTSUP && ret != -ENETUNREACH)
+		l_warn("error parsing non-HT rates");
+
+	return ret;
 }
 
 bool wiphy_regdom_is_updating(struct wiphy *wiphy)
@@ -1263,10 +1285,10 @@ static void wiphy_print_basic_info(struct wiphy *wiphy)
 	l_info("\tPermanent Address: "MAC, MAC_STR(wiphy->permanent_addr));
 
 	if (wiphy->band_2g)
-		wiphy_print_band_info(wiphy->band_2g, "2.4Ghz Band");
+		wiphy_print_band_info(wiphy->band_2g, "2.4GHz Band");
 
 	if (wiphy->band_5g)
-		wiphy_print_band_info(wiphy->band_5g, "5Ghz Band");
+		wiphy_print_band_info(wiphy->band_5g, "5GHz Band");
 
 	if (wiphy->band_6g)
 		wiphy_print_band_info(wiphy->band_6g, "6GHz Band");
@@ -1311,6 +1333,27 @@ static void wiphy_print_basic_info(struct wiphy *wiphy)
 
 		l_free(joined);
 		l_strfreev(iftypes);
+	}
+
+	if (wiphy->driver_flags) {
+		char **flags = l_strv_new();
+		char *joined;
+
+		if (wiphy->driver_flags & DEFAULT_IF)
+			flags = l_strv_append(flags, "DefaultInterface");
+
+		if (wiphy->driver_flags & FORCE_PAE)
+			flags = l_strv_append(flags, "ForcePae");
+
+		if (wiphy->driver_flags & POWER_SAVE_DISABLE)
+			flags = l_strv_append(flags, "PowerSaveDisable");
+
+		joined = l_strjoinv(flags, ' ');
+
+		l_info("\tDriver Flags: %s", joined);
+
+		l_free(joined);
+		l_strfreev(flags);
 	}
 }
 
@@ -1822,9 +1865,6 @@ static void wiphy_parse_attributes(struct wiphy *wiphy,
 			else
 				wiphy->max_scan_ie_len = *((uint16_t *) data);
 			break;
-		case NL80211_ATTR_SUPPORT_IBSS_RSN:
-			wiphy->support_adhoc_rsn = true;
-			break;
 		case NL80211_ATTR_SUPPORTED_IFTYPES:
 			if (l_genl_attr_recurse(&attr, &nested))
 				parse_supported_iftypes(wiphy, &nested);
@@ -1870,6 +1910,10 @@ static bool wiphy_get_driver_name(struct wiphy *wiphy)
 	char driver_path[256];
 	ssize_t len;
 	unsigned int i;
+	unsigned int j;
+	const struct l_settings *config = iwd_get_config();
+	char **flag_list;
+	char *driver;
 
 	driver_link = l_strdup_printf("/sys/class/ieee80211/%s/device/driver",
 					wiphy->name);
@@ -1881,11 +1925,31 @@ static bool wiphy_get_driver_name(struct wiphy *wiphy)
 	}
 
 	driver_path[len] = '\0';
-	wiphy->driver_str = l_strdup(basename(driver_path));
+
+	driver = memrchr(driver_path, '/', len);
+	wiphy->driver_str = l_strdup(driver ? driver + 1 : driver_path);
 
 	for (i = 0; i < L_ARRAY_SIZE(driver_infos); i++)
 		if (!fnmatch(driver_infos[i].prefix, wiphy->driver_str, 0))
-			wiphy->driver_info = &driver_infos[i];
+			wiphy->driver_flags |= driver_infos[i].flags;
+
+	/* Check for any user-defined driver flags */
+	if (!l_settings_has_group(config, "DriverQuirks"))
+		return true;
+
+	for (i = 0; i < L_ARRAY_SIZE(driver_flag_names); i++) {
+		flag_list = l_settings_get_string_list(config, "DriverQuirks",
+						driver_flag_names[i].name, ',');
+		if (!flag_list)
+			continue;
+
+		for (j = 0; flag_list[j]; j++)
+			if (!fnmatch(flag_list[j], wiphy->driver_str, 0))
+				wiphy->driver_flags |=
+						driver_flag_names[i].flag;
+
+		l_strv_free(flag_list);
+	}
 
 	return true;
 }
@@ -2574,16 +2638,13 @@ static void wiphy_radio_work_next(struct wiphy *wiphy)
 {
 	struct wiphy_radio_work_item *work;
 	bool done;
+	uint32_t id;
 
-	work = l_queue_peek_head(wiphy->work);
+	work = l_queue_pop_head(wiphy->work);
 	if (!work)
 		return;
 
-	/*
-	 * Ensures no other work item will get inserted before this one while
-	 * the work is being done.
-	 */
-	work->priority = INT_MIN;
+	id = work->id;
 
 	l_debug("Starting work item %u", work->id);
 
@@ -2592,15 +2653,25 @@ static void wiphy_radio_work_next(struct wiphy *wiphy)
 	wiphy->work_in_callback = false;
 
 	if (done) {
-		work->id = 0;
+		/* Item was rescheduled, don't destroy */
+		if (work->id != id)
+			goto next;
 
-		l_queue_remove(wiphy->work, work);
+		work->id = 0;
 
 		wiphy->work_in_callback = true;
 		destroy_work(work);
 		wiphy->work_in_callback = false;
 
+next:
 		wiphy_radio_work_next(wiphy);
+	} else {
+		/*
+		 * Ensures no other work item will get inserted before this one
+		 * while the work is being done.
+		 */
+		work->priority = INT_MIN;
+		l_queue_push_head(wiphy->work, work);
 	}
 }
 
@@ -2682,6 +2753,28 @@ int wiphy_radio_work_is_running(struct wiphy *wiphy, uint32_t id)
 		return -ENOENT;
 
 	return item == l_queue_peek_head(wiphy->work) ? 1 : 0;
+}
+
+uint32_t wiphy_radio_work_reschedule(struct wiphy *wiphy,
+					struct wiphy_radio_work_item *item)
+{
+	/*
+	 * This should only be called from within the do_work callback, meaning
+	 * the item should not be in the queue. Any re-insertion on a running
+	 * item after do_work is not allowed.
+	 */
+	if (L_WARN_ON(wiphy_radio_work_is_running(wiphy, item->id) != -ENOENT))
+		return 0;
+
+	work_ids++;
+
+	l_debug("Rescheduling work item %u, new id %u", item->id, work_ids);
+
+	item->id = work_ids;
+
+	l_queue_insert(wiphy->work, item, insert_by_priority, NULL);
+
+	return item->id;
 }
 
 static int wiphy_init(void)

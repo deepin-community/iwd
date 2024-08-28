@@ -63,12 +63,10 @@ To start an interactive mode and list all available commands do:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ iwctl
 [iwd]# help
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -77,14 +75,12 @@ To connect to a network:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [iwd]# device list
 [iwd]# station DEVICE scan
 [iwd]# station DEVICE get\-networks
 [iwd]# station DEVICE connect SSID
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Command line mode
@@ -94,11 +90,9 @@ To list all available commands in command line mode and exit do:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ iwctl \-\-help
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -107,14 +101,12 @@ To connect to a network:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ iwctl device list
 $ iwctl station DEVICE scan
 $ iwctl station DEVICE get\-networks
 $ iwctl \-\-passphrase=PASSPHRASE station DEVICE connect SSID
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH SEE ALSO

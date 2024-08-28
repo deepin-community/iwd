@@ -105,7 +105,12 @@ void __handshake_set_install_ext_tk_func(handshake_install_ext_tk_func_t func)
 
 void handshake_state_free(struct handshake_state *s)
 {
-	__typeof__(s->free) destroy = s->free;
+	__typeof__(s->free) destroy;
+
+	if (!s)
+		return;
+
+	destroy = s->free;
 
 	if (s->in_event) {
 		s->in_event = false;
@@ -117,7 +122,8 @@ void handshake_state_free(struct handshake_state *s)
 	l_free(s->authenticator_rsnxe);
 	l_free(s->supplicant_rsnxe);
 	l_free(s->mde);
-	l_free(s->fte);
+	l_free(s->authenticator_fte);
+	l_free(s->supplicant_fte);
 	l_free(s->fils_ip_req_ie);
 	l_free(s->fils_ip_resp_ie);
 	l_free(s->vendor_ies);
@@ -130,6 +136,12 @@ void handshake_state_free(struct handshake_state *s)
 	if (s->passphrase) {
 		explicit_bzero(s->passphrase, strlen(s->passphrase));
 		l_free(s->passphrase);
+	}
+
+	if (s->password_identifier) {
+		explicit_bzero(s->password_identifier,
+				strlen(s->password_identifier));
+		l_free(s->password_identifier);
 	}
 
 	if (s->ecc_sae_pts) {
@@ -303,9 +315,16 @@ void handshake_state_set_mde(struct handshake_state *s, const uint8_t *mde)
 	replace_ie(&s->mde, mde);
 }
 
-void handshake_state_set_fte(struct handshake_state *s, const uint8_t *fte)
+void handshake_state_set_authenticator_fte(struct handshake_state *s,
+						const uint8_t *fte)
 {
-	replace_ie(&s->fte, fte);
+	replace_ie(&s->authenticator_fte, fte);
+}
+
+void handshake_state_set_supplicant_fte(struct handshake_state *s,
+						const uint8_t *fte)
+{
+	replace_ie(&s->supplicant_fte, fte);
 }
 
 void handshake_state_set_vendor_ies(struct handshake_state *s,
@@ -357,6 +376,12 @@ void handshake_state_set_passphrase(struct handshake_state *s,
 					const char *passphrase)
 {
 	s->passphrase = l_strdup(passphrase);
+}
+
+void handshake_state_set_password_identifier(struct handshake_state *s,
+						const char *id)
+{
+	s->password_identifier = l_strdup(id);
 }
 
 void handshake_state_set_no_rekey(struct handshake_state *s, bool no_rekey)
@@ -509,7 +534,7 @@ bool handshake_state_derive_ptk(struct handshake_state *s)
 				IE_RSN_AKM_SUITE_FT_OVER_SAE_SHA256 |
 				IE_RSN_AKM_SUITE_FT_OVER_FILS_SHA256 |
 				IE_RSN_AKM_SUITE_FT_OVER_FILS_SHA384)) &&
-			(!s->mde || !s->fte))
+			(!s->mde || !s->authenticator_fte))
 		return false;
 
 	s->ptk_complete = false;
@@ -734,10 +759,9 @@ void handshake_state_set_pmkid(struct handshake_state *s, const uint8_t *pmkid)
 	s->have_pmkid = true;
 }
 
-bool handshake_state_get_pmkid(struct handshake_state *s, uint8_t *out_pmkid)
+bool handshake_state_get_pmkid(struct handshake_state *s, uint8_t *out_pmkid,
+				enum l_checksum_type sha)
 {
-	bool use_sha256;
-
 	/* SAE exports pmkid */
 	if (s->have_pmkid) {
 		memcpy(out_pmkid, s->pmkid, 16);
@@ -747,22 +771,56 @@ bool handshake_state_get_pmkid(struct handshake_state *s, uint8_t *out_pmkid)
 	if (!s->have_pmk)
 		return false;
 
+	return crypto_derive_pmkid(s->pmk, 32, s->spa, s->aa, out_pmkid,
+					sha);
+}
+
+bool handshake_state_pmkid_matches(struct handshake_state *s,
+					const uint8_t *check)
+{
+	uint8_t own_pmkid[16];
+	enum l_checksum_type sha;
+
 	/*
-	 * Note 802.11 section 11.6.1.3:
-	 * "When the PMKID is calculated for the PMKSA as part of RSN
-	 * preauthentication, the AKM has not yet been negotiated. In this
-	 * case, the HMAC-SHA1-128 based derivation is used for the PMKID
-	 * calculation."
+	 * 802.11-2020 Table 9-151 defines the hashing algorithm to use
+	 * for various AKM's. Note some AKMs are omitted here because they
+	 * export the PMKID individually (SAE/FILS/FT-PSK)
+	 *
+	 * SHA1:
+	 * 	00-0F-AC:1 (8021X)
+	 * 	00-0F-AC:2 (PSK)
+	 *
+	 * SHA256:
+	 * 	00-0F-AC:3 (FT-8021X)
+	 * 	00-0F-AC:5 (8021X-SHA256)
+	 * 	00-0F-AC:6 (PSK-SHA256)
+	 *
+	 * SHA384:
+	 * 	00-0F-AC:13 (FT-8021X-SHA384)
 	 */
-
 	if (s->akm_suite & (IE_RSN_AKM_SUITE_8021X_SHA256 |
-			IE_RSN_AKM_SUITE_PSK_SHA256))
-		use_sha256 = true;
+			IE_RSN_AKM_SUITE_PSK_SHA256 |
+			IE_RSN_AKM_SUITE_FT_OVER_8021X))
+		sha = L_CHECKSUM_SHA256;
 	else
-		use_sha256 = false;
+		sha = L_CHECKSUM_SHA1;
 
-	return crypto_derive_pmkid(s->pmk, s->spa, s->aa, out_pmkid,
-					use_sha256);
+	if (!handshake_state_get_pmkid(s, own_pmkid, sha))
+		return false;
+
+	if (l_secure_memcmp(own_pmkid, check, 16)) {
+		if (s->akm_suite != IE_RSN_AKM_SUITE_FT_OVER_8021X)
+			return false;
+
+		l_debug("PMKID did not match, trying SHA1 derivation");
+
+		if (!handshake_state_get_pmkid(s, own_pmkid, L_CHECKSUM_SHA1))
+			return false;
+
+		return l_secure_memcmp(own_pmkid, check, 16) == 0;
+	}
+
+	return true;
 }
 
 void handshake_state_set_gtk(struct handshake_state *s, const uint8_t *key,
@@ -778,6 +836,21 @@ void handshake_state_set_gtk(struct handshake_state *s, const uint8_t *key,
 	memcpy(s->gtk, key, key_len);
 	s->gtk_index = key_index;
 	memcpy(s->gtk_rsc, rsc, 6);
+}
+
+void handshake_state_set_igtk(struct handshake_state *s, const uint8_t *key,
+				unsigned int key_index, const uint8_t *rsc)
+{
+	enum crypto_cipher cipher =
+		ie_rsn_cipher_suite_to_cipher(s->group_management_cipher);
+	int key_len = crypto_cipher_key_len(cipher);
+
+	if (!key_len)
+		return;
+
+	memcpy(s->igtk, key, key_len);
+	s->igtk_index = key_index;
+	memcpy(s->igtk_rsc, rsc, 6);
 }
 
 /*
@@ -969,6 +1042,25 @@ void handshake_util_build_gtk_kde(enum crypto_cipher cipher, const uint8_t *key,
 	memcpy(to, key, key_len);
 }
 
+void handshake_util_build_igtk_kde(enum crypto_cipher cipher, const uint8_t *key,
+					unsigned int key_index, uint8_t *to)
+{
+	size_t key_len = crypto_cipher_key_len(cipher);
+
+	*to++ = IE_TYPE_VENDOR_SPECIFIC;
+	*to++ = 12 + key_len;
+	l_put_be32(HANDSHAKE_KDE_IGTK, to);
+	to += 4;
+	*to++ = key_index;
+	*to++ = 0;
+
+	/** Initialize PN to zero **/
+	memset(to, 0, 6);
+	to += 6;
+
+	memcpy(to, key, key_len);
+}
+
 static const uint8_t *handshake_state_get_ft_fils_kek(struct handshake_state *s,
 						size_t *len)
 {
@@ -1004,7 +1096,7 @@ bool handshake_decode_fte_key(struct handshake_state *s, const uint8_t *wrapped,
 				size_t key_len, uint8_t *key_out)
 {
 	const uint8_t *kek;
-	size_t kek_len = 16;
+	size_t kek_len = handshake_state_get_kek_len(s);
 	size_t padded_len = key_len < 16 ? 16 : align_len(key_len, 8);
 
 	if (s->akm_suite & (IE_RSN_AKM_SUITE_FT_OVER_FILS_SHA256 |

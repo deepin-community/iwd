@@ -1,3 +1,4 @@
+'\" t
 .\" Man page generated from reStructuredText.
 .
 .
@@ -79,19 +80,6 @@ configuration.
 T}
 _
 T{
-APRanges
-T}	T{
-Values: <IP in prefix notation>
-.sp
-Sets the range of IP\(aqs used for DHCP server (AP mode). The IP should be
-in prefix notation e.g. 192.168.1.0/24. AP\(aqs which are started in a
-profile\-less configuration will use this pool of IP\(aqs to set the AP\(aqs
-interface address as well as default DHCP server options. Each AP will
-get a new subnet from the range and clients will be addressed in that
-subnet to avoid IP conflicts if multiple AP\(aqs are started.
-T}
-_
-T{
 UseDefaultInterface
 T}	T{
 Values: true, \fBfalse\fP
@@ -150,7 +138,7 @@ T}	T{
 Value: rssi dBm value, from \-100 to 1, default: \fB\-70\fP
 .sp
 This value can be used to control how aggressively \fBiwd\fP roams when
-connected to a 2.4Ghz access point.
+connected to a 2.4GHz access point.
 T}
 _
 T{
@@ -356,7 +344,19 @@ center;
 |l|l|.
 _
 T{
-BandModifier5Ghz
+BandModifier2_4GHz
+T}	T{
+Values: floating point value (default: \fB1.0\fP)
+.sp
+Increase or decrease the preference for 2.4GHz access points by
+increasing or decreasing the value of this modifier.
+.sp
+A value of 0.0 will disable the 2.4GHz band and prevent scanning or
+connecting on those frequencies.
+T}
+_
+T{
+BandModifier5GHz
 T}	T{
 Values: floating point value (default: \fB1.0\fP)
 .sp
@@ -364,17 +364,23 @@ Increase or decrease the preference for 5GHz access points by increasing
 or decreasing the value of this modifier.  5GHz networks are already
 preferred due to their increase throughput / data rate.  However, 5GHz
 networks are highly RSSI sensitive, so it is still possible for IWD to
-prefer 2.4Ghz APs in certain circumstances.
+prefer 2.4GHz APs in certain circumstances.
+.sp
+A value of 0.0 will disable the 5GHz band and prevent scanning or
+connecting on those frequencies.
 T}
 _
 T{
-BandModifier6Ghz
+BandModifier6GHz
 T}	T{
 Values: floating point value (default: \fB1.0\fP)
 .sp
 Increase or decrease the preference for 6GHz access points by increasing
 or decreasing the value of this modifier.  Since 6GHz networks are highly
 RSSI sensitive, this gives an option to prefer 6GHz APs over 5GHz APs.
+.sp
+A value of 0.0 will disable the 6GHz band and prevent scanning or
+connecting on those frequencies.
 T}
 _
 .TE
@@ -445,6 +451,42 @@ and defaults to 28 bits.  The AP profile\(aqs \fB[IPv4].Address\fP setting
 overrides the global value set here.  Setting a too small address space
 will limit the number of access points that can be running
 simultaneously on different interfaces.
+T}
+_
+.TE
+.SS DriverQuirks
+.sp
+The group \fB[DriverQuirks]\fP contains special flags associated with drivers that
+are buggy or just don\(aqt behave similar enough to the majority of other drivers.
+.TS
+center;
+|l|l|.
+_
+T{
+DefaultInterface
+T}	T{
+Values: comma\-separated list of drivers or glob matches
+.sp
+If a driver in use matches one in this list IWD will not attempt to
+remove and re\-create the default interface.
+T}
+_
+T{
+ForcePae
+T}	T{
+Values: comma\-separated list of drivers or glob matches
+.sp
+If a driver in use matches one in this list ControlPortOverNL80211 will
+not be used, and PAE will be used instead. Some drivers do not properly
+support ControlPortOverNL80211 even though they advertise support for it.
+T}
+_
+T{
+PowerSaveDisable
+T}	T{
+Values: comma\-separated list of drivers or glob matches
+.sp
+If a driver in user matches one in this list power save will be disabled.
 T}
 _
 .TE

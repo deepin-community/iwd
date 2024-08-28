@@ -1,3 +1,147 @@
+iwd (2.19-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release;
+
+  [ Jonas Smedegaard ]
+  * tighten build-dependency on libell-dev
+  * unfuzz patch 1001
+
+ -- Jonas Smedegaard <dr@jones.dk>  Wed, 10 Jul 2024 08:59:26 +0200
+
+iwd (2.18-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release;
+
+  [ Jonas Smedegaard ]
+  * update copyright info: update coverage
+  * declare compliance with Debian Policy 4.7.0
+  * tighten build-dependency on libell-dev
+  * unfuzz patch 1001
+
+ -- Jonas Smedegaard <dr@jones.dk>  Thu, 06 Jun 2024 16:28:02 +0200
+
+iwd (2.17-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release;
+
+  [ Jonas Smedegaard ]
+  * tighten build-dependency on libell-dev
+
+ -- Jonas Smedegaard <dr@jones.dk>  Sat, 30 Mar 2024 13:54:04 +0100
+
+iwd (2.16-1) unstable; urgency=high
+
+  [ upstream ]
+  * new release;
+    fixes CVE-2024-28084;
+    closes: bug#1065443, thanks to Salvatore Bonaccorso
+
+  [ Jonas Smedegaard ]
+  * set urgency=high due to security bugfix
+
+ -- Jonas Smedegaard <dr@jones.dk>  Tue, 05 Mar 2024 06:28:42 +0100
+
+iwd (2.15-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release
+
+  [ Jonas Smedegaard ]
+  * tighten build-dependency on libell-dev
+
+ -- Jonas Smedegaard <dr@jones.dk>  Wed, 28 Feb 2024 07:58:48 +0100
+
+iwd (2.14-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release
+
+  [ Jonas Smedegaard ]
+  * update copyright info: update coverage
+
+ -- Jonas Smedegaard <dr@jones.dk>  Sun, 11 Feb 2024 19:05:31 +0100
+
+iwd (2.13-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release
+
+  [ Jonas Smedegaard ]
+  * build-depend on systemd-dev (not systemd);
+    closes: bug#1060583, thanks to Michael Biebl
+  * update copyright info: update coverage
+
+ -- Jonas Smedegaard <dr@jones.dk>  Sun, 14 Jan 2024 09:22:07 +0100
+
+iwd (2.12-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release
+
+ -- Jonas Smedegaard <dr@jones.dk>  Sat, 30 Dec 2023 03:44:28 +0100
+
+iwd (2.11-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release
+
+ -- Jonas Smedegaard <dr@jones.dk>  Fri, 15 Dec 2023 22:28:36 +0100
+
+iwd (2.10-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release(s)
+
+  [ Jonas Smedegaard ]
+  * tighten build-dependency on libell-dev
+  * unfuzz patches
+
+ -- Jonas Smedegaard <dr@jones.dk>  Thu, 30 Nov 2023 12:08:59 +0100
+
+iwd (2.8-1) unstable; urgency=medium
+
+  * add patch 2001 to use system group sudo instead of wheel;
+    closes: bug#1050325, thanks to Michael Biebl and Simon McVittie
+  * tighten build-dependency on libell-dev
+  * update copyright info: update coverage
+
+ -- Jonas Smedegaard <dr@jones.dk>  Wed, 30 Aug 2023 19:44:59 +0200
+
+iwd (2.7-2) unstable; urgency=medium
+
+  * drop patch 2001, obsoleted since upstream release v1.23;
+    closes: bug#1043265, thanks to Diederik de Haas
+
+ -- Jonas Smedegaard <dr@jones.dk>  Tue, 08 Aug 2023 11:23:48 +0200
+
+iwd (2.7-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release
+
+ -- Jonas Smedegaard <dr@jones.dk>  Thu, 06 Jul 2023 18:57:37 +0200
+
+iwd (2.6-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release
+
+ -- Jonas Smedegaard <dr@jones.dk>  Tue, 27 Jun 2023 18:20:24 +0200
+
+iwd (2.5-1) unstable; urgency=medium
+
+  [ upstream ]
+  * new release
+
+  [ Jonas Smedegaard ]
+  * unfuzz patches
+  * tighten build-dependency on libell-dev
+
+ -- Jonas Smedegaard <dr@jones.dk>  Tue, 13 Jun 2023 00:09:12 +0200
+
 iwd (2.3-1) unstable; urgency=medium
 
   [ upstream ]

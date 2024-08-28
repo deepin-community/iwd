@@ -74,16 +74,6 @@ The group ``[General]`` contains general settings.
        ``[Network]`` settings for additional settings related to network
        configuration.
 
-   * - APRanges
-     - Values: <IP in prefix notation>
-
-       Sets the range of IP's used for DHCP server (AP mode). The IP should be
-       in prefix notation e.g. 192.168.1.0/24. AP's which are started in a
-       profile-less configuration will use this pool of IP's to set the AP's
-       interface address as well as default DHCP server options. Each AP will
-       get a new subnet from the range and clients will be addressed in that
-       subnet to avoid IP conflicts if multiple AP's are started.
-
    * - UseDefaultInterface
      - Values: true, **false**
 
@@ -132,7 +122,7 @@ The group ``[General]`` contains general settings.
      - Value: rssi dBm value, from -100 to 1, default: **-70**
 
        This value can be used to control how aggressively **iwd** roams when
-       connected to a 2.4Ghz access point.
+       connected to a 2.4GHz access point.
 
    * - RoamThreshold5G
      - Value: rssi dBm value, from -100 to 1, default: **-76**
@@ -301,21 +291,36 @@ autoconnect purposes.
    :widths: 20 80
    :align: left
 
-   * - BandModifier5Ghz
+   * - BandModifier2_4GHz
+     - Values: floating point value (default: **1.0**)
+
+       Increase or decrease the preference for 2.4GHz access points by
+       increasing or decreasing the value of this modifier.
+
+       A value of 0.0 will disable the 2.4GHz band and prevent scanning or
+       connecting on those frequencies.
+
+   * - BandModifier5GHz
      - Values: floating point value (default: **1.0**)
 
        Increase or decrease the preference for 5GHz access points by increasing
        or decreasing the value of this modifier.  5GHz networks are already
        preferred due to their increase throughput / data rate.  However, 5GHz
        networks are highly RSSI sensitive, so it is still possible for IWD to
-       prefer 2.4Ghz APs in certain circumstances.
+       prefer 2.4GHz APs in certain circumstances.
 
-   * - BandModifier6Ghz
+       A value of 0.0 will disable the 5GHz band and prevent scanning or
+       connecting on those frequencies.
+
+   * - BandModifier6GHz
      - Values: floating point value (default: **1.0**)
 
        Increase or decrease the preference for 6GHz access points by increasing
        or decreasing the value of this modifier.  Since 6GHz networks are highly
        RSSI sensitive, this gives an option to prefer 6GHz APs over 5GHz APs.
+
+       A value of 0.0 will disable the 6GHz band and prevent scanning or
+       connecting on those frequencies.
 
 Scan
 ----
@@ -377,6 +382,36 @@ The group ``[IPv4]`` contains settings related to IPv4 network configuration.
        overrides the global value set here.  Setting a too small address space
        will limit the number of access points that can be running
        simultaneously on different interfaces.
+
+DriverQuirks
+------------
+
+The group ``[DriverQuirks]`` contains special flags associated with drivers that
+are buggy or just don't behave similar enough to the majority of other drivers.
+
+.. list-table::
+   :header-rows: 0
+   :stub-columns: 0
+   :widths: 20 80
+   :align: left
+
+   * - DefaultInterface
+     - Values: comma-separated list of drivers or glob matches
+
+       If a driver in use matches one in this list IWD will not attempt to
+       remove and re-create the default interface.
+
+   * - ForcePae
+     - Values: comma-separated list of drivers or glob matches
+
+       If a driver in use matches one in this list ControlPortOverNL80211 will
+       not be used, and PAE will be used instead. Some drivers do not properly
+       support ControlPortOverNL80211 even though they advertise support for it.
+
+   * - PowerSaveDisable
+     - Values: comma-separated list of drivers or glob matches
+
+       If a driver in user matches one in this list power save will be disabled.
 
 SEE ALSO
 ========
