@@ -445,7 +445,7 @@ static int fils_rx_authenticate(struct auth_proto *driver, const uint8_t *frame,
 					kck_len, &ft_info) < 0)
 			goto invalid_ies;
 
-		handshake_state_set_fte(fils->hs, fte);
+		handshake_state_set_authenticator_fte(fils->hs, fte);
 		handshake_state_set_kh_ids(fils->hs, ft_info.r0khid,
 							ft_info.r0khid_len,
 							ft_info.r1khid);
@@ -489,7 +489,7 @@ static int fils_rx_associate(struct auth_proto *driver, const uint8_t *frame,
 	bool sha384 = (fils->hs->akm_suite & (IE_RSN_AKM_SUITE_FILS_SHA384 |
 			IE_RSN_AKM_SUITE_FT_OVER_FILS_SHA384));
 	uint8_t data[44];
-	uint8_t *ptr = data;
+	uint8_t *ptr;
 
 	if (assoc->status_code != 0)
 		return L_CPU_TO_LE16(assoc->status_code);

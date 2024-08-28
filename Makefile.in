@@ -92,8 +92,7 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3)
 libexec_PROGRAMS = $(am__EXEEXT_4) $(am__EXEEXT_5)
-noinst_PROGRAMS = tools/probe-req$(EXEEXT) \
-	tools/iwd-decrypt-profile$(EXEEXT) $(am__EXEEXT_8)
+noinst_PROGRAMS = $(am__EXEEXT_6) $(am__EXEEXT_10)
 @DAEMON_TRUE@am__append_1 = src/iwd
 @DAEMON_TRUE@@OFONO_TRUE@am__append_2 = ofono
 @DAEMON_TRUE@@OFONO_TRUE@am__append_3 = src/ofono.c
@@ -115,13 +114,23 @@ noinst_PROGRAMS = tools/probe-req$(EXEEXT) \
 @SYSTEMD_SERVICE_TRUE@@WIRED_TRUE@am__append_17 = wired/ead.service
 @SYSTEMD_SERVICE_TRUE@@WIRED_TRUE@am__append_18 = wired/net.connman.ead.service
 @MANUAL_PAGES_TRUE@@WIRED_TRUE@am__append_19 = wired/ead.8
-@HWSIM_TRUE@am__append_20 = tools/hwsim
-@DBUS_POLICY_TRUE@@HWSIM_TRUE@am__append_21 = tools/hwsim-dbus.conf
-@HWSIM_TRUE@@MANUAL_PAGES_TRUE@am__append_22 = tools/hwsim.1
-@CLIENT_TRUE@am__append_23 = unit/test-client
-@MAINTAINER_MODE_TRUE@am__append_24 = $(unit_tests)
-TESTS = $(am__EXEEXT_7)
-@MAINTAINER_MODE_TRUE@am__append_25 = -DHAVE_PKCS8_SUPPORT
+@DAEMON_TRUE@am__append_20 = tools/probe-req tools/iwd-decrypt-profile
+@HWSIM_TRUE@am__append_21 = tools/hwsim
+@DBUS_POLICY_TRUE@@HWSIM_TRUE@am__append_22 = tools/hwsim-dbus.conf
+@HWSIM_TRUE@@MANUAL_PAGES_TRUE@am__append_23 = tools/hwsim.1
+@DAEMON_TRUE@am__append_24 = unit/test-cmac-aes \
+@DAEMON_TRUE@		unit/test-hmac-md5 unit/test-hmac-sha1 unit/test-hmac-sha256 \
+@DAEMON_TRUE@		unit/test-prf-sha1 unit/test-kdf-sha256 \
+@DAEMON_TRUE@		unit/test-crypto unit/test-eapol unit/test-mpdu \
+@DAEMON_TRUE@		unit/test-ie unit/test-util unit/test-ssid-security \
+@DAEMON_TRUE@		unit/test-arc4 unit/test-wsc unit/test-eap-mschapv2 \
+@DAEMON_TRUE@		unit/test-eap-sim unit/test-sae unit/test-p2p unit/test-band \
+@DAEMON_TRUE@		unit/test-dpp unit/test-json unit/test-nl80211util
+
+@CLIENT_TRUE@am__append_25 = unit/test-client
+@MAINTAINER_MODE_TRUE@am__append_26 = $(unit_tests)
+TESTS = $(am__EXEEXT_9)
+@MAINTAINER_MODE_TRUE@am__append_27 = -DHAVE_PKCS8_SUPPORT
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/build-aux/libtool.m4 \
@@ -153,19 +162,27 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libexecdir)" \
 	"$(DESTDIR)$(systemd_unitdir)"
 @DAEMON_TRUE@am__EXEEXT_4 = src/iwd$(EXEEXT)
 @WIRED_TRUE@am__EXEEXT_5 = wired/ead$(EXEEXT)
-@CLIENT_TRUE@am__EXEEXT_6 = unit/test-client$(EXEEXT)
-am__EXEEXT_7 = unit/test-cmac-aes$(EXEEXT) unit/test-hmac-md5$(EXEEXT) \
-	unit/test-hmac-sha1$(EXEEXT) unit/test-hmac-sha256$(EXEEXT) \
-	unit/test-prf-sha1$(EXEEXT) unit/test-kdf-sha256$(EXEEXT) \
-	unit/test-crypto$(EXEEXT) unit/test-eapol$(EXEEXT) \
-	unit/test-mpdu$(EXEEXT) unit/test-ie$(EXEEXT) \
-	unit/test-util$(EXEEXT) unit/test-ssid-security$(EXEEXT) \
-	unit/test-arc4$(EXEEXT) unit/test-wsc$(EXEEXT) \
-	unit/test-eap-mschapv2$(EXEEXT) unit/test-eap-sim$(EXEEXT) \
-	unit/test-sae$(EXEEXT) unit/test-p2p$(EXEEXT) \
-	unit/test-band$(EXEEXT) unit/test-dpp$(EXEEXT) \
-	unit/test-json$(EXEEXT) $(am__EXEEXT_6)
-@MAINTAINER_MODE_TRUE@am__EXEEXT_8 = $(am__EXEEXT_7)
+@DAEMON_TRUE@am__EXEEXT_6 = tools/probe-req$(EXEEXT) \
+@DAEMON_TRUE@	tools/iwd-decrypt-profile$(EXEEXT)
+@DAEMON_TRUE@am__EXEEXT_7 = unit/test-cmac-aes$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-hmac-md5$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-hmac-sha1$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-hmac-sha256$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-prf-sha1$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-kdf-sha256$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-crypto$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-eapol$(EXEEXT) unit/test-mpdu$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-ie$(EXEEXT) unit/test-util$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-ssid-security$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-arc4$(EXEEXT) unit/test-wsc$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-eap-mschapv2$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-eap-sim$(EXEEXT) unit/test-sae$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-p2p$(EXEEXT) unit/test-band$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-dpp$(EXEEXT) unit/test-json$(EXEEXT) \
+@DAEMON_TRUE@	unit/test-nl80211util$(EXEEXT)
+@CLIENT_TRUE@am__EXEEXT_8 = unit/test-client$(EXEEXT)
+am__EXEEXT_9 = $(am__EXEEXT_7) $(am__EXEEXT_8)
+@MAINTAINER_MODE_TRUE@am__EXEEXT_10 = $(am__EXEEXT_9)
 PROGRAMS = $(bin_PROGRAMS) $(libexec_PROGRAMS) $(noinst_PROGRAMS)
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 ell_libell_internal_la_LIBADD =
@@ -179,15 +196,16 @@ am__ell_libell_internal_la_SOURCES_DIST = ell/util.h ell/test.h \
 	ell/uuid.h ell/key.h ell/file.h ell/dir.h ell/net.h ell/dhcp.h \
 	ell/cert.h ell/ecc.h ell/ecdh.h ell/time.h ell/path.h \
 	ell/icmp6.h ell/dhcp6.h ell/acd.h ell/cleanup.h \
-	ell/netconfig.h ell/private.h ell/missing.h ell/util.c \
-	ell/test.c ell/strv.c ell/utf8.c ell/queue.c ell/hashmap.c \
-	ell/string.c ell/settings.c ell/main-private.h ell/main.c \
-	ell/idle.c ell/signal.c ell/timeout.c ell/io.c ell/ringbuf.c \
-	ell/log.c ell/checksum.c ell/netlink-private.h ell/netlink.c \
-	ell/genl.c ell/rtnl-private.h ell/rtnl.c ell/dbus-private.h \
-	ell/dbus.c ell/dbus-message.c ell/dbus-util.c \
-	ell/dbus-service.c ell/dbus-client.c ell/dbus-name-cache.c \
-	ell/dbus-filter.c ell/gvariant-private.h ell/gvariant-util.c \
+	ell/netconfig.h ell/sysctl.h ell/notifylist.h ell/private.h \
+	ell/missing.h ell/util.c ell/test.c ell/strv.c ell/utf8.c \
+	ell/queue.c ell/hashmap.c ell/string.c ell/settings.c \
+	ell/main-private.h ell/main.c ell/idle.c ell/signal.c \
+	ell/timeout.c ell/io.c ell/ringbuf.c ell/log.c ell/checksum.c \
+	ell/netlink-private.h ell/netlink.c ell/genl.c \
+	ell/rtnl-private.h ell/rtnl.c ell/dbus-private.h ell/dbus.c \
+	ell/dbus-message.c ell/dbus-util.c ell/dbus-service.c \
+	ell/dbus-client.c ell/dbus-name-cache.c ell/dbus-filter.c \
+	ell/gvariant-private.h ell/gvariant-util.c \
 	ell/siphash-private.h ell/siphash.c ell/hwdb.c ell/cipher.c \
 	ell/random.c ell/uintset.c ell/base64.c ell/asn1-private.h \
 	ell/pem.c ell/pem-private.h ell/tls-private.h ell/tls.c \
@@ -200,7 +218,7 @@ am__ell_libell_internal_la_SOURCES_DIST = ell/util.h ell/test.h \
 	ell/time.c ell/time-private.h ell/path.c ell/dhcp6.c \
 	ell/dhcp6-private.h ell/icmp6.c ell/icmp6-private.h \
 	ell/dhcp6-lease.c ell/dhcp6-transport.c ell/acd.c \
-	ell/netconfig.c ell/useful.h
+	ell/netconfig.c ell/sysctl.c ell/notifylist.c ell/useful.h
 am__objects_1 =
 am__dirstamp = $(am__leading_dot)dirstamp
 @EXTERNAL_ELL_FALSE@am__objects_2 = ell/util.lo ell/test.lo \
@@ -227,7 +245,8 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @EXTERNAL_ELL_FALSE@	ell/time.lo ell/path.lo ell/dhcp6.lo \
 @EXTERNAL_ELL_FALSE@	ell/icmp6.lo ell/dhcp6-lease.lo \
 @EXTERNAL_ELL_FALSE@	ell/dhcp6-transport.lo ell/acd.lo \
-@EXTERNAL_ELL_FALSE@	ell/netconfig.lo
+@EXTERNAL_ELL_FALSE@	ell/netconfig.lo ell/sysctl.lo \
+@EXTERNAL_ELL_FALSE@	ell/notifylist.lo
 @EXTERNAL_ELL_FALSE@am_ell_libell_internal_la_OBJECTS =  \
 @EXTERNAL_ELL_FALSE@	$(am__objects_1) $(am__objects_2) \
 @EXTERNAL_ELL_FALSE@	$(am__objects_1)
@@ -246,8 +265,9 @@ am__client_iwctl_SOURCES_DIST = client/main.c client/adapter.c \
 	client/network.h client/network.c client/properties.h \
 	client/properties.c client/wsc.c client/station.c \
 	client/diagnostic.c client/diagnostic.h client/daemon.c \
-	client/daemon.h client/dpp.c client/station-debug.c src/util.c \
-	src/util.h src/band.c src/band.h
+	client/daemon.h client/dpp.c client/dpp-pkex.c \
+	client/station-debug.c src/util.c src/util.h src/band.c \
+	src/band.h
 @CLIENT_TRUE@am_client_iwctl_OBJECTS = client/main.$(OBJEXT) \
 @CLIENT_TRUE@	client/adapter.$(OBJEXT) client/agent.$(OBJEXT) \
 @CLIENT_TRUE@	client/agent-manager.$(OBJEXT) \
@@ -261,13 +281,16 @@ am__client_iwctl_SOURCES_DIST = client/main.c client/adapter.c \
 @CLIENT_TRUE@	client/station.$(OBJEXT) \
 @CLIENT_TRUE@	client/diagnostic.$(OBJEXT) \
 @CLIENT_TRUE@	client/daemon.$(OBJEXT) client/dpp.$(OBJEXT) \
+@CLIENT_TRUE@	client/dpp-pkex.$(OBJEXT) \
 @CLIENT_TRUE@	client/station-debug.$(OBJEXT) src/util.$(OBJEXT) \
 @CLIENT_TRUE@	src/band.$(OBJEXT)
 client_iwctl_OBJECTS = $(am_client_iwctl_OBJECTS)
 @EXTERNAL_ELL_FALSE@am__DEPENDENCIES_1 = ell/libell-internal.la
 am__DEPENDENCIES_2 =
+@LIBEDIT_FALSE@am__DEPENDENCIES_3 = $(am__DEPENDENCIES_2)
+@LIBEDIT_TRUE@am__DEPENDENCIES_3 = $(am__DEPENDENCIES_2)
 @CLIENT_TRUE@client_iwctl_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-@CLIENT_TRUE@	$(am__DEPENDENCIES_2)
+@CLIENT_TRUE@	$(am__DEPENDENCIES_3)
 am__monitor_iwmon_SOURCES_DIST = monitor/main.c linux/nl80211.h \
 	monitor/nlmon.h monitor/nlmon.c monitor/pcap.h monitor/pcap.c \
 	monitor/display.h monitor/display.c src/ie.h src/ie.c \
@@ -309,15 +332,15 @@ am__src_iwd_SOURCES_DIST = src/main.c linux/nl80211.h src/iwd.h \
 	src/wscutil.h src/wscutil.c src/diagnostic.h src/diagnostic.c \
 	src/ip-pool.h src/ip-pool.c src/band.h src/band.c src/sysfs.h \
 	src/sysfs.c src/offchannel.h src/offchannel.c src/dpp-util.h \
-	src/dpp-util.c src/json.h src/json.c src/dpp.c src/eap.c \
-	src/eap.h src/eap-private.h src/eap-md5.c src/eap-tls.c \
-	src/eap-ttls.c src/eap-mschapv2.c src/eap-mschapv2.h \
-	src/eap-sim.c src/eap-aka.c src/eap-peap.c src/eap-gtc.c \
-	src/eap-pwd.c src/util.h src/util.c src/crypto.h src/crypto.c \
-	src/simutil.h src/simutil.c src/simauth.h src/simauth.c \
-	src/watchlist.h src/watchlist.c src/eap-tls-common.h \
-	src/eap-tls-common.c src/mschaputil.h src/mschaputil.c \
-	src/ofono.c
+	src/dpp-util.c src/json.h src/json.c src/dpp.c src/udev.c \
+	src/eap.c src/eap.h src/eap-private.h src/eap-md5.c \
+	src/eap-tls.c src/eap-ttls.c src/eap-mschapv2.c \
+	src/eap-mschapv2.h src/eap-sim.c src/eap-aka.c src/eap-peap.c \
+	src/eap-gtc.c src/eap-pwd.c src/util.h src/util.c src/crypto.h \
+	src/crypto.c src/simutil.h src/simutil.c src/simauth.h \
+	src/simauth.c src/watchlist.h src/watchlist.c \
+	src/eap-tls-common.h src/eap-tls-common.c src/mschaputil.h \
+	src/mschaputil.c src/ofono.c
 am__objects_3 = src/eap.$(OBJEXT) src/eap-md5.$(OBJEXT) \
 	src/eap-tls.$(OBJEXT) src/eap-ttls.$(OBJEXT) \
 	src/eap-mschapv2.$(OBJEXT) src/eap-sim.$(OBJEXT) \
@@ -356,39 +379,54 @@ am__objects_5 = $(am__objects_4)
 @DAEMON_TRUE@	src/ip-pool.$(OBJEXT) src/band.$(OBJEXT) \
 @DAEMON_TRUE@	src/sysfs.$(OBJEXT) src/offchannel.$(OBJEXT) \
 @DAEMON_TRUE@	src/dpp-util.$(OBJEXT) src/json.$(OBJEXT) \
-@DAEMON_TRUE@	src/dpp.$(OBJEXT) $(am__objects_3) \
-@DAEMON_TRUE@	$(am__objects_5)
+@DAEMON_TRUE@	src/dpp.$(OBJEXT) src/udev.$(OBJEXT) \
+@DAEMON_TRUE@	$(am__objects_3) $(am__objects_5)
 src_iwd_OBJECTS = $(am_src_iwd_OBJECTS)
 am__tools_hwsim_SOURCES_DIST = tools/hwsim.c src/mpdu.h src/util.h \
 	src/util.c src/nl80211cmd.h src/nl80211cmd.c src/nl80211util.h \
 	src/nl80211util.c src/storage.h src/storage.c src/common.h \
-	src/common.c src/band.h src/band.c src/crypto.h src/crypto.c
+	src/common.c src/band.h src/band.c src/ie.h src/ie.c \
+	src/crypto.h src/crypto.c
 @HWSIM_TRUE@am_tools_hwsim_OBJECTS = tools/hwsim.$(OBJEXT) \
 @HWSIM_TRUE@	src/util.$(OBJEXT) src/nl80211cmd.$(OBJEXT) \
 @HWSIM_TRUE@	src/nl80211util.$(OBJEXT) src/storage.$(OBJEXT) \
 @HWSIM_TRUE@	src/common.$(OBJEXT) src/band.$(OBJEXT) \
-@HWSIM_TRUE@	src/crypto.$(OBJEXT)
+@HWSIM_TRUE@	src/ie.$(OBJEXT) src/crypto.$(OBJEXT)
 tools_hwsim_OBJECTS = $(am_tools_hwsim_OBJECTS)
 @HWSIM_TRUE@tools_hwsim_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_tools_iwd_decrypt_profile_OBJECTS =  \
-	tools/iwd-decrypt-profile.$(OBJEXT) src/common.$(OBJEXT) \
-	src/crypto.$(OBJEXT) src/storage.$(OBJEXT)
+am__tools_iwd_decrypt_profile_SOURCES_DIST =  \
+	tools/iwd-decrypt-profile.c src/common.h src/common.c \
+	src/crypto.h src/crypto.c src/storage.h src/storage.c
+@DAEMON_TRUE@am_tools_iwd_decrypt_profile_OBJECTS =  \
+@DAEMON_TRUE@	tools/iwd-decrypt-profile.$(OBJEXT) \
+@DAEMON_TRUE@	src/common.$(OBJEXT) src/crypto.$(OBJEXT) \
+@DAEMON_TRUE@	src/storage.$(OBJEXT)
 tools_iwd_decrypt_profile_OBJECTS =  \
 	$(am_tools_iwd_decrypt_profile_OBJECTS)
-tools_iwd_decrypt_profile_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_tools_probe_req_OBJECTS = tools/probe-req.$(OBJEXT) \
-	src/mpdu.$(OBJEXT) src/ie.$(OBJEXT) src/nl80211util.$(OBJEXT) \
-	src/util.$(OBJEXT) src/common.$(OBJEXT) src/band.$(OBJEXT)
+@DAEMON_TRUE@tools_iwd_decrypt_profile_DEPENDENCIES =  \
+@DAEMON_TRUE@	$(am__DEPENDENCIES_1)
+am__tools_probe_req_SOURCES_DIST = tools/probe-req.c src/mpdu.h \
+	src/mpdu.c src/ie.h src/ie.c src/nl80211util.h \
+	src/nl80211util.c src/util.h src/util.c src/common.h \
+	src/common.c src/band.h src/band.c
+@DAEMON_TRUE@am_tools_probe_req_OBJECTS = tools/probe-req.$(OBJEXT) \
+@DAEMON_TRUE@	src/mpdu.$(OBJEXT) src/ie.$(OBJEXT) \
+@DAEMON_TRUE@	src/nl80211util.$(OBJEXT) src/util.$(OBJEXT) \
+@DAEMON_TRUE@	src/common.$(OBJEXT) src/band.$(OBJEXT)
 tools_probe_req_OBJECTS = $(am_tools_probe_req_OBJECTS)
-tools_probe_req_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_arc4_OBJECTS = unit/test-arc4.$(OBJEXT) \
-	src/crypto.$(OBJEXT)
+@DAEMON_TRUE@tools_probe_req_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_arc4_SOURCES_DIST = unit/test-arc4.c src/crypto.h \
+	src/crypto.c
+@DAEMON_TRUE@am_unit_test_arc4_OBJECTS = unit/test-arc4.$(OBJEXT) \
+@DAEMON_TRUE@	src/crypto.$(OBJEXT)
 unit_test_arc4_OBJECTS = $(am_unit_test_arc4_OBJECTS)
-unit_test_arc4_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_band_OBJECTS = unit/test-band.$(OBJEXT) \
-	src/band.$(OBJEXT) src/ie.$(OBJEXT)
+@DAEMON_TRUE@unit_test_arc4_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_band_SOURCES_DIST = unit/test-band.c src/band.h \
+	src/band.c src/netdev.h src/ie.h src/ie.c
+@DAEMON_TRUE@am_unit_test_band_OBJECTS = unit/test-band.$(OBJEXT) \
+@DAEMON_TRUE@	src/band.$(OBJEXT) src/ie.$(OBJEXT)
 unit_test_band_OBJECTS = $(am_unit_test_band_OBJECTS)
-unit_test_band_DEPENDENCIES = $(am__DEPENDENCIES_1)
+@DAEMON_TRUE@unit_test_band_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am__unit_test_client_SOURCES_DIST = unit/test-client.c \
 	client/adapter.c client/agent.h client/agent.c \
 	client/agent-manager.h client/agent-manager.c client/command.h \
@@ -404,105 +442,190 @@ am__unit_test_client_SOURCES_DIST = unit/test-client.c \
 @CLIENT_TRUE@	client/properties.$(OBJEXT)
 unit_test_client_OBJECTS = $(am_unit_test_client_OBJECTS)
 @CLIENT_TRUE@unit_test_client_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-@CLIENT_TRUE@	$(am__DEPENDENCIES_2)
-am_unit_test_cmac_aes_OBJECTS = unit/test-cmac-aes.$(OBJEXT) \
-	src/crypto.$(OBJEXT)
+@CLIENT_TRUE@	$(am__DEPENDENCIES_3)
+am__unit_test_cmac_aes_SOURCES_DIST = unit/test-cmac-aes.c \
+	src/crypto.h src/crypto.c
+@DAEMON_TRUE@am_unit_test_cmac_aes_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-cmac-aes.$(OBJEXT) src/crypto.$(OBJEXT)
 unit_test_cmac_aes_OBJECTS = $(am_unit_test_cmac_aes_OBJECTS)
-unit_test_cmac_aes_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_crypto_OBJECTS = unit/test-crypto.$(OBJEXT) \
-	src/crypto.$(OBJEXT)
+@DAEMON_TRUE@unit_test_cmac_aes_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_crypto_SOURCES_DIST = unit/test-crypto.c src/crypto.h \
+	src/crypto.c
+@DAEMON_TRUE@am_unit_test_crypto_OBJECTS = unit/test-crypto.$(OBJEXT) \
+@DAEMON_TRUE@	src/crypto.$(OBJEXT)
 unit_test_crypto_OBJECTS = $(am_unit_test_crypto_OBJECTS)
-unit_test_crypto_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_dpp_OBJECTS = unit/test-dpp.$(OBJEXT) \
-	src/dpp-util.$(OBJEXT) src/band.$(OBJEXT) src/util.$(OBJEXT) \
-	src/crypto.$(OBJEXT) src/json.$(OBJEXT)
+@DAEMON_TRUE@unit_test_crypto_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_dpp_SOURCES_DIST = unit/test-dpp.c src/dpp-util.h \
+	src/dpp-util.c src/band.h src/band.c src/util.h src/util.c \
+	src/crypto.h src/crypto.c src/json.h src/json.c
+@DAEMON_TRUE@am_unit_test_dpp_OBJECTS = unit/test-dpp.$(OBJEXT) \
+@DAEMON_TRUE@	src/dpp-util.$(OBJEXT) src/band.$(OBJEXT) \
+@DAEMON_TRUE@	src/util.$(OBJEXT) src/crypto.$(OBJEXT) \
+@DAEMON_TRUE@	src/json.$(OBJEXT)
 unit_test_dpp_OBJECTS = $(am_unit_test_dpp_OBJECTS)
-unit_test_dpp_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_eap_mschapv2_OBJECTS = src/eap-mschapv2.$(OBJEXT) \
-	src/eap.$(OBJEXT) src/mschaputil.$(OBJEXT) \
-	unit/test-eap-mschapv2.$(OBJEXT)
+@DAEMON_TRUE@unit_test_dpp_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_eap_mschapv2_SOURCES_DIST = src/eap-mschapv2.h \
+	src/eap-mschapv2.c src/eap.c src/eap.h src/eap-private.h \
+	src/mschaputil.h src/mschaputil.c unit/test-eap-mschapv2.c
+@DAEMON_TRUE@am_unit_test_eap_mschapv2_OBJECTS =  \
+@DAEMON_TRUE@	src/eap-mschapv2.$(OBJEXT) src/eap.$(OBJEXT) \
+@DAEMON_TRUE@	src/mschaputil.$(OBJEXT) \
+@DAEMON_TRUE@	unit/test-eap-mschapv2.$(OBJEXT)
 unit_test_eap_mschapv2_OBJECTS = $(am_unit_test_eap_mschapv2_OBJECTS)
-unit_test_eap_mschapv2_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_eap_sim_OBJECTS = unit/test-eap-sim.$(OBJEXT) \
-	src/crypto.$(OBJEXT) src/simutil.$(OBJEXT) src/ie.$(OBJEXT) \
-	src/watchlist.$(OBJEXT) src/eapol.$(OBJEXT) \
-	src/eapolutil.$(OBJEXT) src/handshake.$(OBJEXT) \
-	src/eap.$(OBJEXT) src/util.$(OBJEXT) src/simauth.$(OBJEXT) \
-	src/erp.$(OBJEXT) src/band.$(OBJEXT) src/eap-sim.$(OBJEXT)
+@DAEMON_TRUE@unit_test_eap_mschapv2_DEPENDENCIES =  \
+@DAEMON_TRUE@	$(am__DEPENDENCIES_1)
+am__unit_test_eap_sim_SOURCES_DIST = unit/test-eap-sim.c src/crypto.h \
+	src/crypto.c src/simutil.h src/simutil.c src/ie.h src/ie.c \
+	src/watchlist.h src/watchlist.c src/eapol.h src/eapol.c \
+	src/eapolutil.h src/eapolutil.c src/handshake.h \
+	src/handshake.c src/eap.h src/eap.c src/eap-private.h \
+	src/util.h src/util.c src/simauth.h src/simauth.c src/erp.h \
+	src/erp.c src/band.h src/band.c src/eap-sim.c
+@DAEMON_TRUE@am_unit_test_eap_sim_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-eap-sim.$(OBJEXT) src/crypto.$(OBJEXT) \
+@DAEMON_TRUE@	src/simutil.$(OBJEXT) src/ie.$(OBJEXT) \
+@DAEMON_TRUE@	src/watchlist.$(OBJEXT) src/eapol.$(OBJEXT) \
+@DAEMON_TRUE@	src/eapolutil.$(OBJEXT) src/handshake.$(OBJEXT) \
+@DAEMON_TRUE@	src/eap.$(OBJEXT) src/util.$(OBJEXT) \
+@DAEMON_TRUE@	src/simauth.$(OBJEXT) src/erp.$(OBJEXT) \
+@DAEMON_TRUE@	src/band.$(OBJEXT) src/eap-sim.$(OBJEXT)
 unit_test_eap_sim_OBJECTS = $(am_unit_test_eap_sim_OBJECTS)
-unit_test_eap_sim_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_eapol_OBJECTS = unit/test-eapol.$(OBJEXT) \
-	src/crypto.$(OBJEXT) src/ie.$(OBJEXT) src/watchlist.$(OBJEXT) \
-	src/eapol.$(OBJEXT) src/eapolutil.$(OBJEXT) \
-	src/handshake.$(OBJEXT) src/eap.$(OBJEXT) \
-	src/eap-tls.$(OBJEXT) src/eap-ttls.$(OBJEXT) \
-	src/eap-md5.$(OBJEXT) src/util.$(OBJEXT) \
-	src/eap-tls-common.$(OBJEXT) src/erp.$(OBJEXT) \
-	src/band.$(OBJEXT) src/mschaputil.$(OBJEXT)
+@DAEMON_TRUE@unit_test_eap_sim_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_eapol_SOURCES_DIST = unit/test-eapol.c src/crypto.h \
+	src/crypto.c src/ie.h src/ie.c src/watchlist.h src/watchlist.c \
+	src/eapol.h src/eapol.c src/eapolutil.h src/eapolutil.c \
+	src/handshake.h src/handshake.c src/eap.h src/eap.c \
+	src/eap-private.h src/eap-tls.c src/eap-ttls.c src/eap-md5.c \
+	src/util.c src/eap-tls-common.h src/eap-tls-common.c src/erp.h \
+	src/erp.c src/band.h src/band.c src/mschaputil.h \
+	src/mschaputil.c
+@DAEMON_TRUE@am_unit_test_eapol_OBJECTS = unit/test-eapol.$(OBJEXT) \
+@DAEMON_TRUE@	src/crypto.$(OBJEXT) src/ie.$(OBJEXT) \
+@DAEMON_TRUE@	src/watchlist.$(OBJEXT) src/eapol.$(OBJEXT) \
+@DAEMON_TRUE@	src/eapolutil.$(OBJEXT) src/handshake.$(OBJEXT) \
+@DAEMON_TRUE@	src/eap.$(OBJEXT) src/eap-tls.$(OBJEXT) \
+@DAEMON_TRUE@	src/eap-ttls.$(OBJEXT) src/eap-md5.$(OBJEXT) \
+@DAEMON_TRUE@	src/util.$(OBJEXT) src/eap-tls-common.$(OBJEXT) \
+@DAEMON_TRUE@	src/erp.$(OBJEXT) src/band.$(OBJEXT) \
+@DAEMON_TRUE@	src/mschaputil.$(OBJEXT)
 unit_test_eapol_OBJECTS = $(am_unit_test_eapol_OBJECTS)
-am_unit_test_hmac_md5_OBJECTS = unit/test-hmac-md5.$(OBJEXT) \
-	src/crypto.$(OBJEXT)
+am__unit_test_hmac_md5_SOURCES_DIST = unit/test-hmac-md5.c \
+	src/crypto.h src/crypto.c
+@DAEMON_TRUE@am_unit_test_hmac_md5_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-hmac-md5.$(OBJEXT) src/crypto.$(OBJEXT)
 unit_test_hmac_md5_OBJECTS = $(am_unit_test_hmac_md5_OBJECTS)
-unit_test_hmac_md5_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_hmac_sha1_OBJECTS = unit/test-hmac-sha1.$(OBJEXT) \
-	src/crypto.$(OBJEXT)
+@DAEMON_TRUE@unit_test_hmac_md5_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_hmac_sha1_SOURCES_DIST = unit/test-hmac-sha1.c \
+	src/crypto.h src/crypto.c
+@DAEMON_TRUE@am_unit_test_hmac_sha1_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-hmac-sha1.$(OBJEXT) \
+@DAEMON_TRUE@	src/crypto.$(OBJEXT)
 unit_test_hmac_sha1_OBJECTS = $(am_unit_test_hmac_sha1_OBJECTS)
-unit_test_hmac_sha1_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_hmac_sha256_OBJECTS = unit/test-hmac-sha256.$(OBJEXT) \
-	src/crypto.$(OBJEXT)
+@DAEMON_TRUE@unit_test_hmac_sha1_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_hmac_sha256_SOURCES_DIST = unit/test-hmac-sha256.c \
+	src/crypto.h src/crypto.c
+@DAEMON_TRUE@am_unit_test_hmac_sha256_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-hmac-sha256.$(OBJEXT) \
+@DAEMON_TRUE@	src/crypto.$(OBJEXT)
 unit_test_hmac_sha256_OBJECTS = $(am_unit_test_hmac_sha256_OBJECTS)
-unit_test_hmac_sha256_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_ie_OBJECTS = unit/test-ie.$(OBJEXT) src/ie.$(OBJEXT)
+@DAEMON_TRUE@unit_test_hmac_sha256_DEPENDENCIES =  \
+@DAEMON_TRUE@	$(am__DEPENDENCIES_1)
+am__unit_test_ie_SOURCES_DIST = unit/test-ie.c src/ie.h src/ie.c
+@DAEMON_TRUE@am_unit_test_ie_OBJECTS = unit/test-ie.$(OBJEXT) \
+@DAEMON_TRUE@	src/ie.$(OBJEXT)
 unit_test_ie_OBJECTS = $(am_unit_test_ie_OBJECTS)
-unit_test_ie_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_json_OBJECTS = unit/test-json.$(OBJEXT) \
-	src/json.$(OBJEXT)
+@DAEMON_TRUE@unit_test_ie_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_json_SOURCES_DIST = unit/test-json.c src/json.h \
+	src/json.c shared/jsmn.h
+@DAEMON_TRUE@am_unit_test_json_OBJECTS = unit/test-json.$(OBJEXT) \
+@DAEMON_TRUE@	src/json.$(OBJEXT)
 unit_test_json_OBJECTS = $(am_unit_test_json_OBJECTS)
-unit_test_json_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_kdf_sha256_OBJECTS = unit/test-kdf-sha256.$(OBJEXT) \
-	src/crypto.$(OBJEXT)
+@DAEMON_TRUE@unit_test_json_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_kdf_sha256_SOURCES_DIST = unit/test-kdf-sha256.c \
+	src/crypto.h src/crypto.c
+@DAEMON_TRUE@am_unit_test_kdf_sha256_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-kdf-sha256.$(OBJEXT) \
+@DAEMON_TRUE@	src/crypto.$(OBJEXT)
 unit_test_kdf_sha256_OBJECTS = $(am_unit_test_kdf_sha256_OBJECTS)
-unit_test_kdf_sha256_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_mpdu_OBJECTS = unit/test-mpdu.$(OBJEXT) \
-	src/mpdu.$(OBJEXT) src/ie.$(OBJEXT)
+@DAEMON_TRUE@unit_test_kdf_sha256_DEPENDENCIES =  \
+@DAEMON_TRUE@	$(am__DEPENDENCIES_1)
+am__unit_test_mpdu_SOURCES_DIST = unit/test-mpdu.c src/mpdu.h \
+	src/mpdu.c src/ie.h src/ie.c
+@DAEMON_TRUE@am_unit_test_mpdu_OBJECTS = unit/test-mpdu.$(OBJEXT) \
+@DAEMON_TRUE@	src/mpdu.$(OBJEXT) src/ie.$(OBJEXT)
 unit_test_mpdu_OBJECTS = $(am_unit_test_mpdu_OBJECTS)
-unit_test_mpdu_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_p2p_OBJECTS = unit/test-p2p.$(OBJEXT) \
-	src/wscutil.$(OBJEXT) src/crypto.$(OBJEXT) src/ie.$(OBJEXT) \
-	src/util.$(OBJEXT) src/p2putil.$(OBJEXT) src/band.$(OBJEXT)
+@DAEMON_TRUE@unit_test_mpdu_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_nl80211util_SOURCES_DIST = unit/test-nl80211util.c \
+	src/nl80211util.h src/nl80211util.c src/band.h src/band.c \
+	src/ie.h src/ie.c src/util.h src/util.c
+@DAEMON_TRUE@am_unit_test_nl80211util_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-nl80211util.$(OBJEXT) \
+@DAEMON_TRUE@	src/nl80211util.$(OBJEXT) src/band.$(OBJEXT) \
+@DAEMON_TRUE@	src/ie.$(OBJEXT) src/util.$(OBJEXT)
+unit_test_nl80211util_OBJECTS = $(am_unit_test_nl80211util_OBJECTS)
+@DAEMON_TRUE@unit_test_nl80211util_DEPENDENCIES =  \
+@DAEMON_TRUE@	$(am__DEPENDENCIES_1)
+am__unit_test_p2p_SOURCES_DIST = unit/test-p2p.c src/wscutil.h \
+	src/wscutil.c src/crypto.h src/crypto.c src/ie.h src/ie.c \
+	src/util.h src/util.c src/p2putil.h src/p2putil.c src/band.h \
+	src/band.c
+@DAEMON_TRUE@am_unit_test_p2p_OBJECTS = unit/test-p2p.$(OBJEXT) \
+@DAEMON_TRUE@	src/wscutil.$(OBJEXT) src/crypto.$(OBJEXT) \
+@DAEMON_TRUE@	src/ie.$(OBJEXT) src/util.$(OBJEXT) \
+@DAEMON_TRUE@	src/p2putil.$(OBJEXT) src/band.$(OBJEXT)
 unit_test_p2p_OBJECTS = $(am_unit_test_p2p_OBJECTS)
-unit_test_p2p_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_prf_sha1_OBJECTS = unit/test-prf-sha1.$(OBJEXT) \
-	src/crypto.$(OBJEXT)
+@DAEMON_TRUE@unit_test_p2p_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_prf_sha1_SOURCES_DIST = unit/test-prf-sha1.c \
+	src/crypto.h src/crypto.c
+@DAEMON_TRUE@am_unit_test_prf_sha1_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-prf-sha1.$(OBJEXT) src/crypto.$(OBJEXT)
 unit_test_prf_sha1_OBJECTS = $(am_unit_test_prf_sha1_OBJECTS)
-unit_test_prf_sha1_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_sae_OBJECTS = unit/test-sae.$(OBJEXT) src/sae.$(OBJEXT) \
-	src/crypto.$(OBJEXT) src/ie.$(OBJEXT) src/handshake.$(OBJEXT) \
-	src/erp.$(OBJEXT) src/band.$(OBJEXT) src/util.$(OBJEXT) \
-	src/mpdu.$(OBJEXT)
+@DAEMON_TRUE@unit_test_prf_sha1_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_sae_SOURCES_DIST = unit/test-sae.c src/sae.h src/sae.c \
+	src/crypto.h src/crypto.c src/ie.h src/ie.c src/handshake.h \
+	src/handshake.c src/erp.h src/erp.c src/band.h src/band.c \
+	src/util.h src/util.c src/mpdu.h src/mpdu.c
+@DAEMON_TRUE@am_unit_test_sae_OBJECTS = unit/test-sae.$(OBJEXT) \
+@DAEMON_TRUE@	src/sae.$(OBJEXT) src/crypto.$(OBJEXT) \
+@DAEMON_TRUE@	src/ie.$(OBJEXT) src/handshake.$(OBJEXT) \
+@DAEMON_TRUE@	src/erp.$(OBJEXT) src/band.$(OBJEXT) \
+@DAEMON_TRUE@	src/util.$(OBJEXT) src/mpdu.$(OBJEXT)
 unit_test_sae_OBJECTS = $(am_unit_test_sae_OBJECTS)
-unit_test_sae_DEPENDENCIES = $(am__DEPENDENCIES_1)
+@DAEMON_TRUE@unit_test_sae_DEPENDENCIES = $(am__DEPENDENCIES_1)
 unit_test_sae_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(unit_test_sae_LDFLAGS) $(LDFLAGS) -o $@
-am_unit_test_ssid_security_OBJECTS =  \
-	unit/test-ssid-security.$(OBJEXT) src/ie.$(OBJEXT) \
-	src/common.$(OBJEXT)
+am__unit_test_ssid_security_SOURCES_DIST = unit/test-ssid-security.c \
+	src/ie.h src/ie.c src/common.h src/common.c
+@DAEMON_TRUE@am_unit_test_ssid_security_OBJECTS =  \
+@DAEMON_TRUE@	unit/test-ssid-security.$(OBJEXT) \
+@DAEMON_TRUE@	src/ie.$(OBJEXT) src/common.$(OBJEXT)
 unit_test_ssid_security_OBJECTS =  \
 	$(am_unit_test_ssid_security_OBJECTS)
-unit_test_ssid_security_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_util_OBJECTS = src/util.$(OBJEXT) src/band.$(OBJEXT) \
-	unit/test-util.$(OBJEXT)
+@DAEMON_TRUE@unit_test_ssid_security_DEPENDENCIES =  \
+@DAEMON_TRUE@	$(am__DEPENDENCIES_1)
+am__unit_test_util_SOURCES_DIST = src/util.h src/util.c src/band.c \
+	src/band.h unit/test-util.c
+@DAEMON_TRUE@am_unit_test_util_OBJECTS = src/util.$(OBJEXT) \
+@DAEMON_TRUE@	src/band.$(OBJEXT) unit/test-util.$(OBJEXT)
 unit_test_util_OBJECTS = $(am_unit_test_util_OBJECTS)
-unit_test_util_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_unit_test_wsc_OBJECTS = unit/test-wsc.$(OBJEXT) \
-	src/wscutil.$(OBJEXT) src/crypto.$(OBJEXT) src/ie.$(OBJEXT) \
-	src/watchlist.$(OBJEXT) src/eapol.$(OBJEXT) \
-	src/eapolutil.$(OBJEXT) src/handshake.$(OBJEXT) \
-	src/eap.$(OBJEXT) src/util.$(OBJEXT) src/erp.$(OBJEXT) \
-	src/band.$(OBJEXT) src/eap-wsc.$(OBJEXT)
+@DAEMON_TRUE@unit_test_util_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__unit_test_wsc_SOURCES_DIST = unit/test-wsc.c src/wscutil.h \
+	src/wscutil.c src/crypto.h src/crypto.c src/ie.h src/ie.c \
+	src/watchlist.h src/watchlist.c src/eapol.h src/eapol.c \
+	src/eapolutil.h src/eapolutil.c src/handshake.h \
+	src/handshake.c src/eap.h src/eap.c src/eap-private.h \
+	src/util.h src/util.c src/erp.h src/erp.c src/band.h \
+	src/band.c src/eap-wsc.h src/eap-wsc.c
+@DAEMON_TRUE@am_unit_test_wsc_OBJECTS = unit/test-wsc.$(OBJEXT) \
+@DAEMON_TRUE@	src/wscutil.$(OBJEXT) src/crypto.$(OBJEXT) \
+@DAEMON_TRUE@	src/ie.$(OBJEXT) src/watchlist.$(OBJEXT) \
+@DAEMON_TRUE@	src/eapol.$(OBJEXT) src/eapolutil.$(OBJEXT) \
+@DAEMON_TRUE@	src/handshake.$(OBJEXT) src/eap.$(OBJEXT) \
+@DAEMON_TRUE@	src/util.$(OBJEXT) src/erp.$(OBJEXT) \
+@DAEMON_TRUE@	src/band.$(OBJEXT) src/eap-wsc.$(OBJEXT)
 unit_test_wsc_OBJECTS = $(am_unit_test_wsc_OBJECTS)
-unit_test_wsc_DEPENDENCIES = $(am__DEPENDENCIES_1)
+@DAEMON_TRUE@unit_test_wsc_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am__wired_ead_SOURCES_DIST = wired/main.c wired/ethdev.h \
 	wired/ethdev.c wired/network.h wired/network.c wired/dbus.h \
 	wired/dbus.c src/module.h src/module.c src/band.h src/band.c \
@@ -540,9 +663,9 @@ am__depfiles_remade = client/$(DEPDIR)/ad-hoc.Po \
 	client/$(DEPDIR)/command.Po client/$(DEPDIR)/daemon.Po \
 	client/$(DEPDIR)/dbus-proxy.Po client/$(DEPDIR)/device.Po \
 	client/$(DEPDIR)/diagnostic.Po client/$(DEPDIR)/display.Po \
-	client/$(DEPDIR)/dpp.Po client/$(DEPDIR)/known-networks.Po \
-	client/$(DEPDIR)/main.Po client/$(DEPDIR)/network.Po \
-	client/$(DEPDIR)/properties.Po \
+	client/$(DEPDIR)/dpp-pkex.Po client/$(DEPDIR)/dpp.Po \
+	client/$(DEPDIR)/known-networks.Po client/$(DEPDIR)/main.Po \
+	client/$(DEPDIR)/network.Po client/$(DEPDIR)/properties.Po \
 	client/$(DEPDIR)/station-debug.Po client/$(DEPDIR)/station.Po \
 	client/$(DEPDIR)/wsc.Po ell/$(DEPDIR)/acd.Plo \
 	ell/$(DEPDIR)/base64.Plo ell/$(DEPDIR)/cert-crypto.Plo \
@@ -565,12 +688,13 @@ am__depfiles_remade = client/$(DEPDIR)/ad-hoc.Po \
 	ell/$(DEPDIR)/key.Plo ell/$(DEPDIR)/log.Plo \
 	ell/$(DEPDIR)/main.Plo ell/$(DEPDIR)/net.Plo \
 	ell/$(DEPDIR)/netconfig.Plo ell/$(DEPDIR)/netlink.Plo \
-	ell/$(DEPDIR)/path.Plo ell/$(DEPDIR)/pem.Plo \
-	ell/$(DEPDIR)/queue.Plo ell/$(DEPDIR)/random.Plo \
-	ell/$(DEPDIR)/ringbuf.Plo ell/$(DEPDIR)/rtnl.Plo \
-	ell/$(DEPDIR)/settings.Plo ell/$(DEPDIR)/signal.Plo \
-	ell/$(DEPDIR)/siphash.Plo ell/$(DEPDIR)/string.Plo \
-	ell/$(DEPDIR)/strv.Plo ell/$(DEPDIR)/test.Plo \
+	ell/$(DEPDIR)/notifylist.Plo ell/$(DEPDIR)/path.Plo \
+	ell/$(DEPDIR)/pem.Plo ell/$(DEPDIR)/queue.Plo \
+	ell/$(DEPDIR)/random.Plo ell/$(DEPDIR)/ringbuf.Plo \
+	ell/$(DEPDIR)/rtnl.Plo ell/$(DEPDIR)/settings.Plo \
+	ell/$(DEPDIR)/signal.Plo ell/$(DEPDIR)/siphash.Plo \
+	ell/$(DEPDIR)/string.Plo ell/$(DEPDIR)/strv.Plo \
+	ell/$(DEPDIR)/sysctl.Plo ell/$(DEPDIR)/test.Plo \
 	ell/$(DEPDIR)/time.Plo ell/$(DEPDIR)/timeout.Plo \
 	ell/$(DEPDIR)/tls-extensions.Plo ell/$(DEPDIR)/tls-record.Plo \
 	ell/$(DEPDIR)/tls-suites.Plo ell/$(DEPDIR)/tls.Plo \
@@ -610,10 +734,10 @@ am__depfiles_remade = client/$(DEPDIR)/ad-hoc.Po \
 	src/$(DEPDIR)/sae.Po src/$(DEPDIR)/scan.Po \
 	src/$(DEPDIR)/simauth.Po src/$(DEPDIR)/simutil.Po \
 	src/$(DEPDIR)/station.Po src/$(DEPDIR)/storage.Po \
-	src/$(DEPDIR)/sysfs.Po src/$(DEPDIR)/util.Po \
-	src/$(DEPDIR)/watchlist.Po src/$(DEPDIR)/wiphy.Po \
-	src/$(DEPDIR)/wsc.Po src/$(DEPDIR)/wscutil.Po \
-	tools/$(DEPDIR)/hwsim.Po \
+	src/$(DEPDIR)/sysfs.Po src/$(DEPDIR)/udev.Po \
+	src/$(DEPDIR)/util.Po src/$(DEPDIR)/watchlist.Po \
+	src/$(DEPDIR)/wiphy.Po src/$(DEPDIR)/wsc.Po \
+	src/$(DEPDIR)/wscutil.Po tools/$(DEPDIR)/hwsim.Po \
 	tools/$(DEPDIR)/iwd-decrypt-profile.Po \
 	tools/$(DEPDIR)/probe-req.Po unit/$(DEPDIR)/test-arc4.Po \
 	unit/$(DEPDIR)/test-band.Po unit/$(DEPDIR)/test-client.Po \
@@ -624,8 +748,9 @@ am__depfiles_remade = client/$(DEPDIR)/ad-hoc.Po \
 	unit/$(DEPDIR)/test-hmac-sha1.Po \
 	unit/$(DEPDIR)/test-hmac-sha256.Po unit/$(DEPDIR)/test-ie.Po \
 	unit/$(DEPDIR)/test-json.Po unit/$(DEPDIR)/test-kdf-sha256.Po \
-	unit/$(DEPDIR)/test-mpdu.Po unit/$(DEPDIR)/test-p2p.Po \
-	unit/$(DEPDIR)/test-prf-sha1.Po unit/$(DEPDIR)/test-sae.Po \
+	unit/$(DEPDIR)/test-mpdu.Po unit/$(DEPDIR)/test-nl80211util.Po \
+	unit/$(DEPDIR)/test-p2p.Po unit/$(DEPDIR)/test-prf-sha1.Po \
+	unit/$(DEPDIR)/test-sae.Po \
 	unit/$(DEPDIR)/test-ssid-security.Po \
 	unit/$(DEPDIR)/test-util.Po unit/$(DEPDIR)/test-wsc.Po \
 	wired/$(DEPDIR)/dbus.Po wired/$(DEPDIR)/ethdev.Po \
@@ -660,27 +785,41 @@ SOURCES = $(ell_libell_internal_la_SOURCES) $(client_iwctl_SOURCES) \
 	$(unit_test_hmac_md5_SOURCES) $(unit_test_hmac_sha1_SOURCES) \
 	$(unit_test_hmac_sha256_SOURCES) $(unit_test_ie_SOURCES) \
 	$(unit_test_json_SOURCES) $(unit_test_kdf_sha256_SOURCES) \
-	$(unit_test_mpdu_SOURCES) $(unit_test_p2p_SOURCES) \
-	$(unit_test_prf_sha1_SOURCES) $(unit_test_sae_SOURCES) \
-	$(unit_test_ssid_security_SOURCES) $(unit_test_util_SOURCES) \
-	$(unit_test_wsc_SOURCES) $(wired_ead_SOURCES)
+	$(unit_test_mpdu_SOURCES) $(unit_test_nl80211util_SOURCES) \
+	$(unit_test_p2p_SOURCES) $(unit_test_prf_sha1_SOURCES) \
+	$(unit_test_sae_SOURCES) $(unit_test_ssid_security_SOURCES) \
+	$(unit_test_util_SOURCES) $(unit_test_wsc_SOURCES) \
+	$(wired_ead_SOURCES)
 DIST_SOURCES = $(am__ell_libell_internal_la_SOURCES_DIST) \
 	$(am__client_iwctl_SOURCES_DIST) \
 	$(am__monitor_iwmon_SOURCES_DIST) $(am__src_iwd_SOURCES_DIST) \
 	$(am__tools_hwsim_SOURCES_DIST) \
-	$(tools_iwd_decrypt_profile_SOURCES) \
-	$(tools_probe_req_SOURCES) $(unit_test_arc4_SOURCES) \
-	$(unit_test_band_SOURCES) $(am__unit_test_client_SOURCES_DIST) \
-	$(unit_test_cmac_aes_SOURCES) $(unit_test_crypto_SOURCES) \
-	$(unit_test_dpp_SOURCES) $(unit_test_eap_mschapv2_SOURCES) \
-	$(unit_test_eap_sim_SOURCES) $(unit_test_eapol_SOURCES) \
-	$(unit_test_hmac_md5_SOURCES) $(unit_test_hmac_sha1_SOURCES) \
-	$(unit_test_hmac_sha256_SOURCES) $(unit_test_ie_SOURCES) \
-	$(unit_test_json_SOURCES) $(unit_test_kdf_sha256_SOURCES) \
-	$(unit_test_mpdu_SOURCES) $(unit_test_p2p_SOURCES) \
-	$(unit_test_prf_sha1_SOURCES) $(unit_test_sae_SOURCES) \
-	$(unit_test_ssid_security_SOURCES) $(unit_test_util_SOURCES) \
-	$(unit_test_wsc_SOURCES) $(am__wired_ead_SOURCES_DIST)
+	$(am__tools_iwd_decrypt_profile_SOURCES_DIST) \
+	$(am__tools_probe_req_SOURCES_DIST) \
+	$(am__unit_test_arc4_SOURCES_DIST) \
+	$(am__unit_test_band_SOURCES_DIST) \
+	$(am__unit_test_client_SOURCES_DIST) \
+	$(am__unit_test_cmac_aes_SOURCES_DIST) \
+	$(am__unit_test_crypto_SOURCES_DIST) \
+	$(am__unit_test_dpp_SOURCES_DIST) \
+	$(am__unit_test_eap_mschapv2_SOURCES_DIST) \
+	$(am__unit_test_eap_sim_SOURCES_DIST) \
+	$(am__unit_test_eapol_SOURCES_DIST) \
+	$(am__unit_test_hmac_md5_SOURCES_DIST) \
+	$(am__unit_test_hmac_sha1_SOURCES_DIST) \
+	$(am__unit_test_hmac_sha256_SOURCES_DIST) \
+	$(am__unit_test_ie_SOURCES_DIST) \
+	$(am__unit_test_json_SOURCES_DIST) \
+	$(am__unit_test_kdf_sha256_SOURCES_DIST) \
+	$(am__unit_test_mpdu_SOURCES_DIST) \
+	$(am__unit_test_nl80211util_SOURCES_DIST) \
+	$(am__unit_test_p2p_SOURCES_DIST) \
+	$(am__unit_test_prf_sha1_SOURCES_DIST) \
+	$(am__unit_test_sae_SOURCES_DIST) \
+	$(am__unit_test_ssid_security_SOURCES_DIST) \
+	$(am__unit_test_util_SOURCES_DIST) \
+	$(am__unit_test_wsc_SOURCES_DIST) \
+	$(am__wired_ead_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -982,14 +1121,18 @@ ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 FILECMD = @FILECMD@
+GENHTML = @GENHTML@
 GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LCOV = @LCOV@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBEDIT_CFLAGS = @LIBEDIT_CFLAGS@
+LIBEDIT_LIBS = @LIBEDIT_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -1142,7 +1285,9 @@ builtin_sources = $(am__append_3)
 @EXTERNAL_ELL_FALSE@			ell/dhcp6.h \
 @EXTERNAL_ELL_FALSE@			ell/acd.h \
 @EXTERNAL_ELL_FALSE@			ell/cleanup.h \
-@EXTERNAL_ELL_FALSE@			ell/netconfig.h
+@EXTERNAL_ELL_FALSE@			ell/netconfig.h \
+@EXTERNAL_ELL_FALSE@			ell/sysctl.h \
+@EXTERNAL_ELL_FALSE@			ell/notifylist.h
 
 @EXTERNAL_ELL_FALSE@ell_sources = ell/private.h \
 @EXTERNAL_ELL_FALSE@			ell/missing.h \
@@ -1222,13 +1367,19 @@ builtin_sources = $(am__append_3)
 @EXTERNAL_ELL_FALSE@			ell/dhcp6-lease.c \
 @EXTERNAL_ELL_FALSE@			ell/dhcp6-transport.c \
 @EXTERNAL_ELL_FALSE@			ell/acd.c \
-@EXTERNAL_ELL_FALSE@			ell/netconfig.c
+@EXTERNAL_ELL_FALSE@			ell/netconfig.c \
+@EXTERNAL_ELL_FALSE@			ell/sysctl.c \
+@EXTERNAL_ELL_FALSE@			ell/notifylist.c
 
 @EXTERNAL_ELL_FALSE@ell_shared = ell/useful.h ell/asn1-private.h
 @EXTERNAL_ELL_FALSE@ell_libell_internal_la_SOURCES = $(ell_headers) $(ell_sources) $(ell_shared)
+@LIBEDIT_FALSE@client_cflags = 
+@LIBEDIT_TRUE@client_cflags = $(LIBEDIT_CFLAGS)
+@LIBEDIT_FALSE@client_ldadd = $(READLINE_LIBS)
+@LIBEDIT_TRUE@client_ldadd = $(LIBEDIT_LIBS)
 @DBUS_POLICY_TRUE@dbus_datadir = @DBUS_DATADIR@/dbus-1/system.d
 @DBUS_POLICY_TRUE@dist_dbus_data_DATA = $(am__append_4) \
-@DBUS_POLICY_TRUE@	$(am__append_15) $(am__append_21)
+@DBUS_POLICY_TRUE@	$(am__append_15) $(am__append_22)
 @SYSTEMD_SERVICE_TRUE@systemd_unitdir = @SYSTEMD_UNITDIR@
 @SYSTEMD_SERVICE_TRUE@systemd_unit_DATA = $(am__append_6) \
 @SYSTEMD_SERVICE_TRUE@	$(am__append_17)
@@ -1240,7 +1391,7 @@ builtin_sources = $(am__append_3)
 @SYSTEMD_SERVICE_TRUE@systemd_modload_DATA = src/pkcs8.conf
 @MANUAL_PAGES_TRUE@man_MANS = $(am__append_9) $(am__append_11) \
 @MANUAL_PAGES_TRUE@	$(am__append_13) $(am__append_19) \
-@MANUAL_PAGES_TRUE@	$(am__append_22)
+@MANUAL_PAGES_TRUE@	$(am__append_23)
 manual_pages = src/iwd.8 src/iwd.debug.7 src/iwd.config.5 src/iwd.network.5 \
 		src/iwd.ap.5 client/iwctl.1 monitor/iwmon.1 wired/ead.8 \
 		tools/hwsim.1
@@ -1316,6 +1467,7 @@ eap_sources = src/eap.c src/eap.h src/eap-private.h \
 @DAEMON_TRUE@					src/dpp-util.h src/dpp-util.c \
 @DAEMON_TRUE@					src/json.h src/json.c \
 @DAEMON_TRUE@					src/dpp.c \
+@DAEMON_TRUE@					src/udev.c \
 @DAEMON_TRUE@					$(eap_sources) \
 @DAEMON_TRUE@					$(builtin_sources)
 
@@ -1338,11 +1490,12 @@ eap_sources = src/eap.c src/eap.h src/eap-private.h \
 @CLIENT_TRUE@			client/wsc.c client/station.c \
 @CLIENT_TRUE@			client/diagnostic.c client/diagnostic.h \
 @CLIENT_TRUE@			client/daemon.c client/daemon.h \
-@CLIENT_TRUE@			client/dpp.c client/station-debug.c \
+@CLIENT_TRUE@			client/dpp.c client/dpp-pkex.c \
+@CLIENT_TRUE@			client/station-debug.c \
 @CLIENT_TRUE@			src/util.c src/util.h \
 @CLIENT_TRUE@			src/band.c src/band.h
 
-@CLIENT_TRUE@client_iwctl_LDADD = $(ell_ldadd) $(READLINE_LIBS)
+@CLIENT_TRUE@client_iwctl_LDADD = $(ell_ldadd) $(client_ldadd)
 @MONITOR_TRUE@monitor_iwmon_SOURCES = monitor/main.c linux/nl80211.h \
 @MONITOR_TRUE@					monitor/nlmon.h monitor/nlmon.c \
 @MONITOR_TRUE@					monitor/pcap.h monitor/pcap.c \
@@ -1370,20 +1523,20 @@ eap_sources = src/eap.c src/eap.h src/eap-private.h \
 @WIRED_TRUE@wired_ead_LDADD = $(ell_ldadd)
 @WIRED_TRUE@wired_ead_DEPENDENCIES = $(ell_dependencies) \
 @WIRED_TRUE@	$(am__append_16)
-tools_probe_req_SOURCES = tools/probe-req.c src/mpdu.h src/mpdu.c \
-					src/ie.h src/ie.c \
-					src/nl80211util.h src/nl80211util.c \
-					src/util.h src/util.c \
-					src/common.h src/common.c \
-					src/band.h src/band.c
+@DAEMON_TRUE@tools_probe_req_SOURCES = tools/probe-req.c src/mpdu.h src/mpdu.c \
+@DAEMON_TRUE@					src/ie.h src/ie.c \
+@DAEMON_TRUE@					src/nl80211util.h src/nl80211util.c \
+@DAEMON_TRUE@					src/util.h src/util.c \
+@DAEMON_TRUE@					src/common.h src/common.c \
+@DAEMON_TRUE@					src/band.h src/band.c
 
-tools_probe_req_LDADD = $(ell_ldadd)
-tools_iwd_decrypt_profile_SOURCES = tools/iwd-decrypt-profile.c \
-					src/common.h src/common.c \
-					src/crypto.h src/crypto.c \
-					src/storage.h src/storage.c
+@DAEMON_TRUE@tools_probe_req_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@tools_iwd_decrypt_profile_SOURCES = tools/iwd-decrypt-profile.c \
+@DAEMON_TRUE@					src/common.h src/common.c \
+@DAEMON_TRUE@					src/crypto.h src/crypto.c \
+@DAEMON_TRUE@					src/storage.h src/storage.c
 
-tools_iwd_decrypt_profile_LDADD = ${ell_ldadd}
+@DAEMON_TRUE@tools_iwd_decrypt_profile_LDADD = ${ell_ldadd}
 @HWSIM_TRUE@tools_hwsim_SOURCES = tools/hwsim.c src/mpdu.h \
 @HWSIM_TRUE@					src/util.h src/util.c \
 @HWSIM_TRUE@					src/nl80211cmd.h src/nl80211cmd.c \
@@ -1391,125 +1544,155 @@ tools_iwd_decrypt_profile_LDADD = ${ell_ldadd}
 @HWSIM_TRUE@					src/storage.h src/storage.c \
 @HWSIM_TRUE@					src/common.h src/common.c \
 @HWSIM_TRUE@					src/band.h src/band.c \
+@HWSIM_TRUE@					src/ie.h src/ie.c \
 @HWSIM_TRUE@					src/crypto.h src/crypto.c
 
 @HWSIM_TRUE@tools_hwsim_LDADD = $(ell_ldadd)
-unit_tests = unit/test-cmac-aes unit/test-hmac-md5 unit/test-hmac-sha1 \
-	unit/test-hmac-sha256 unit/test-prf-sha1 unit/test-kdf-sha256 \
-	unit/test-crypto unit/test-eapol unit/test-mpdu unit/test-ie \
-	unit/test-util unit/test-ssid-security unit/test-arc4 \
-	unit/test-wsc unit/test-eap-mschapv2 unit/test-eap-sim \
-	unit/test-sae unit/test-p2p unit/test-band unit/test-dpp \
-	unit/test-json $(am__append_23)
-unit_test_eap_sim_SOURCES = unit/test-eap-sim.c \
-		src/crypto.h src/crypto.c src/simutil.h src/simutil.c \
-		src/ie.h src/ie.c \
-		src/watchlist.h src/watchlist.c \
-		src/eapol.h src/eapol.c \
-		src/eapolutil.h src/eapolutil.c \
-		src/handshake.h src/handshake.c \
-		src/eap.h src/eap.c src/eap-private.h \
-		src/util.h src/util.c \
-		src/simauth.h src/simauth.c \
-		src/erp.h src/erp.c \
-		src/band.h src/band.c \
-		src/eap-sim.c
+unit_tests = $(am__append_24) $(am__append_25)
+@DAEMON_TRUE@unit_test_eap_sim_SOURCES = unit/test-eap-sim.c \
+@DAEMON_TRUE@		src/crypto.h src/crypto.c src/simutil.h src/simutil.c \
+@DAEMON_TRUE@		src/ie.h src/ie.c \
+@DAEMON_TRUE@		src/watchlist.h src/watchlist.c \
+@DAEMON_TRUE@		src/eapol.h src/eapol.c \
+@DAEMON_TRUE@		src/eapolutil.h src/eapolutil.c \
+@DAEMON_TRUE@		src/handshake.h src/handshake.c \
+@DAEMON_TRUE@		src/eap.h src/eap.c src/eap-private.h \
+@DAEMON_TRUE@		src/util.h src/util.c \
+@DAEMON_TRUE@		src/simauth.h src/simauth.c \
+@DAEMON_TRUE@		src/erp.h src/erp.c \
+@DAEMON_TRUE@		src/band.h src/band.c \
+@DAEMON_TRUE@		src/eap-sim.c
 
-unit_test_eap_sim_LDADD = $(ell_ldadd)
-unit_test_cmac_aes_SOURCES = unit/test-cmac-aes.c \
-					src/crypto.h src/crypto.c
+@DAEMON_TRUE@unit_test_eap_sim_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_cmac_aes_SOURCES = unit/test-cmac-aes.c \
+@DAEMON_TRUE@					src/crypto.h src/crypto.c
 
-unit_test_cmac_aes_LDADD = $(ell_ldadd)
-unit_test_arc4_SOURCES = unit/test-arc4.c \
-					src/crypto.h src/crypto.c
+@DAEMON_TRUE@unit_test_cmac_aes_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_arc4_SOURCES = unit/test-arc4.c \
+@DAEMON_TRUE@					src/crypto.h src/crypto.c
 
-unit_test_arc4_LDADD = $(ell_ldadd)
-unit_test_hmac_md5_SOURCES = unit/test-hmac-md5.c \
-					src/crypto.h src/crypto.c
+@DAEMON_TRUE@unit_test_arc4_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_hmac_md5_SOURCES = unit/test-hmac-md5.c \
+@DAEMON_TRUE@					src/crypto.h src/crypto.c
 
-unit_test_hmac_md5_LDADD = $(ell_ldadd)
-unit_test_hmac_sha1_SOURCES = unit/test-hmac-sha1.c \
-					src/crypto.h src/crypto.c
+@DAEMON_TRUE@unit_test_hmac_md5_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_hmac_sha1_SOURCES = unit/test-hmac-sha1.c \
+@DAEMON_TRUE@					src/crypto.h src/crypto.c
 
-unit_test_hmac_sha1_LDADD = $(ell_ldadd)
-unit_test_hmac_sha256_SOURCES = unit/test-hmac-sha256.c \
-					src/crypto.h src/crypto.c
+@DAEMON_TRUE@unit_test_hmac_sha1_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_hmac_sha256_SOURCES = unit/test-hmac-sha256.c \
+@DAEMON_TRUE@					src/crypto.h src/crypto.c
 
-unit_test_hmac_sha256_LDADD = $(ell_ldadd)
-unit_test_prf_sha1_SOURCES = unit/test-prf-sha1.c \
-					src/crypto.h src/crypto.c
+@DAEMON_TRUE@unit_test_hmac_sha256_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_prf_sha1_SOURCES = unit/test-prf-sha1.c \
+@DAEMON_TRUE@					src/crypto.h src/crypto.c
 
-unit_test_prf_sha1_LDADD = $(ell_ldadd)
-unit_test_kdf_sha256_SOURCES = unit/test-kdf-sha256.c \
-					src/crypto.h src/crypto.c
+@DAEMON_TRUE@unit_test_prf_sha1_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_kdf_sha256_SOURCES = unit/test-kdf-sha256.c \
+@DAEMON_TRUE@					src/crypto.h src/crypto.c
 
-unit_test_kdf_sha256_LDADD = $(ell_ldadd)
-unit_test_ie_SOURCES = unit/test-ie.c src/ie.h src/ie.c
-unit_test_ie_LDADD = $(ell_ldadd)
-unit_test_band_SOURCES = unit/test-band.c src/band.h src/band.c src/netdev.h \
-					src/ie.h src/ie.c
+@DAEMON_TRUE@unit_test_kdf_sha256_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_ie_SOURCES = unit/test-ie.c src/ie.h src/ie.c
+@DAEMON_TRUE@unit_test_ie_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_band_SOURCES = unit/test-band.c src/band.h src/band.c src/netdev.h \
+@DAEMON_TRUE@					src/ie.h src/ie.c
 
-unit_test_band_LDADD = $(ell_ldadd)
-unit_test_crypto_SOURCES = unit/test-crypto.c \
-				src/crypto.h src/crypto.c
+@DAEMON_TRUE@unit_test_band_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_crypto_SOURCES = unit/test-crypto.c \
+@DAEMON_TRUE@				src/crypto.h src/crypto.c
 
-unit_test_crypto_LDADD = $(ell_ldadd)
-unit_test_mpdu_SOURCES = unit/test-mpdu.c \
-				src/mpdu.h src/mpdu.c \
-				src/ie.h src/ie.c
+@DAEMON_TRUE@unit_test_crypto_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_mpdu_SOURCES = unit/test-mpdu.c \
+@DAEMON_TRUE@				src/mpdu.h src/mpdu.c \
+@DAEMON_TRUE@				src/ie.h src/ie.c
 
-unit_test_mpdu_LDADD = $(ell_ldadd)
-unit_test_eapol_SOURCES = unit/test-eapol.c \
-				src/crypto.h src/crypto.c \
-				src/ie.h src/ie.c \
-				src/watchlist.h src/watchlist.c \
-				src/eapol.h src/eapol.c \
-				src/eapolutil.h src/eapolutil.c \
-				src/handshake.h src/handshake.c \
-				src/eap.h src/eap.c src/eap-private.h \
-				src/eap-tls.c src/eap-ttls.c \
-				src/eap-md5.c src/util.c \
-				src/eap-tls-common.h src/eap-tls-common.c \
-				src/erp.h src/erp.c \
-				src/band.h src/band.c \
-				src/mschaputil.h src/mschaputil.c
+@DAEMON_TRUE@unit_test_mpdu_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_eapol_SOURCES = unit/test-eapol.c \
+@DAEMON_TRUE@				src/crypto.h src/crypto.c \
+@DAEMON_TRUE@				src/ie.h src/ie.c \
+@DAEMON_TRUE@				src/watchlist.h src/watchlist.c \
+@DAEMON_TRUE@				src/eapol.h src/eapol.c \
+@DAEMON_TRUE@				src/eapolutil.h src/eapolutil.c \
+@DAEMON_TRUE@				src/handshake.h src/handshake.c \
+@DAEMON_TRUE@				src/eap.h src/eap.c src/eap-private.h \
+@DAEMON_TRUE@				src/eap-tls.c src/eap-ttls.c \
+@DAEMON_TRUE@				src/eap-md5.c src/util.c \
+@DAEMON_TRUE@				src/eap-tls-common.h src/eap-tls-common.c \
+@DAEMON_TRUE@				src/erp.h src/erp.c \
+@DAEMON_TRUE@				src/band.h src/band.c \
+@DAEMON_TRUE@				src/mschaputil.h src/mschaputil.c
 
-unit_test_eapol_LDADD = $(ell_ldadd)
-unit_test_eapol_DEPENDENCIES = $(ell_dependencies) \
-				unit/cert-server.pem \
-				unit/cert-server-key-pkcs8.pem \
-				unit/cert-client.pem \
-				unit/cert-client-key-pkcs8.pem \
-				unit/tls-settings.8021x
+@DAEMON_TRUE@unit_test_eapol_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_eapol_DEPENDENCIES = $(ell_dependencies) \
+@DAEMON_TRUE@				unit/cert-server.pem \
+@DAEMON_TRUE@				unit/cert-server-key-pkcs8.pem \
+@DAEMON_TRUE@				unit/cert-client.pem \
+@DAEMON_TRUE@				unit/cert-client-key-pkcs8.pem \
+@DAEMON_TRUE@				unit/tls-settings.8021x
 
-unit_test_util_SOURCES = src/util.h src/util.c src/band.c src/band.h \
-				unit/test-util.c
+@DAEMON_TRUE@unit_test_util_SOURCES = src/util.h src/util.c src/band.c src/band.h \
+@DAEMON_TRUE@				unit/test-util.c
 
-unit_test_util_LDADD = $(ell_ldadd)
-unit_test_ssid_security_SOURCES = unit/test-ssid-security.c src/ie.h src/ie.c \
-				src/common.h src/common.c
+@DAEMON_TRUE@unit_test_util_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_ssid_security_SOURCES = unit/test-ssid-security.c src/ie.h src/ie.c \
+@DAEMON_TRUE@				src/common.h src/common.c
 
-unit_test_ssid_security_LDADD = $(ell_ldadd)
-unit_test_wsc_SOURCES = unit/test-wsc.c src/wscutil.h src/wscutil.c \
-				src/crypto.h src/crypto.c \
-				src/ie.h src/ie.c \
-				src/watchlist.h src/watchlist.c \
-				src/eapol.h src/eapol.c \
-				src/eapolutil.h src/eapolutil.c \
-				src/handshake.h src/handshake.c \
-				src/eap.h src/eap.c src/eap-private.h \
-				src/util.h src/util.c \
-				src/erp.h src/erp.c \
-				src/band.h src/band.c \
-				src/eap-wsc.h src/eap-wsc.c
+@DAEMON_TRUE@unit_test_ssid_security_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_wsc_SOURCES = unit/test-wsc.c src/wscutil.h src/wscutil.c \
+@DAEMON_TRUE@				src/crypto.h src/crypto.c \
+@DAEMON_TRUE@				src/ie.h src/ie.c \
+@DAEMON_TRUE@				src/watchlist.h src/watchlist.c \
+@DAEMON_TRUE@				src/eapol.h src/eapol.c \
+@DAEMON_TRUE@				src/eapolutil.h src/eapolutil.c \
+@DAEMON_TRUE@				src/handshake.h src/handshake.c \
+@DAEMON_TRUE@				src/eap.h src/eap.c src/eap-private.h \
+@DAEMON_TRUE@				src/util.h src/util.c \
+@DAEMON_TRUE@				src/erp.h src/erp.c \
+@DAEMON_TRUE@				src/band.h src/band.c \
+@DAEMON_TRUE@				src/eap-wsc.h src/eap-wsc.c
 
-unit_test_wsc_LDADD = $(ell_ldadd)
-unit_test_eap_mschapv2_SOURCES = src/eap-mschapv2.h src/eap-mschapv2.c \
-				src/eap.c src/eap.h src/eap-private.h \
-				src/mschaputil.h src/mschaputil.c \
-				unit/test-eap-mschapv2.c
+@DAEMON_TRUE@unit_test_wsc_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_eap_mschapv2_SOURCES = src/eap-mschapv2.h src/eap-mschapv2.c \
+@DAEMON_TRUE@				src/eap.c src/eap.h src/eap-private.h \
+@DAEMON_TRUE@				src/mschaputil.h src/mschaputil.c \
+@DAEMON_TRUE@				unit/test-eap-mschapv2.c
 
-unit_test_eap_mschapv2_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_eap_mschapv2_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_sae_SOURCES = unit/test-sae.c \
+@DAEMON_TRUE@				src/sae.h src/sae.c \
+@DAEMON_TRUE@				src/crypto.h src/crypto.c \
+@DAEMON_TRUE@				src/ie.h src/ie.c \
+@DAEMON_TRUE@				src/handshake.h src/handshake.c \
+@DAEMON_TRUE@				src/erp.h src/erp.c \
+@DAEMON_TRUE@				src/band.h src/band.c \
+@DAEMON_TRUE@				src/util.h src/util.c \
+@DAEMON_TRUE@				src/mpdu.h src/mpdu.c
+
+@DAEMON_TRUE@unit_test_sae_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_sae_LDFLAGS = -Wl,-wrap,l_ecc_supported_ike_groups
+@DAEMON_TRUE@unit_test_p2p_SOURCES = unit/test-p2p.c src/wscutil.h src/wscutil.c \
+@DAEMON_TRUE@				src/crypto.h src/crypto.c \
+@DAEMON_TRUE@				src/ie.h src/ie.c \
+@DAEMON_TRUE@				src/util.h src/util.c \
+@DAEMON_TRUE@				src/p2putil.h src/p2putil.c \
+@DAEMON_TRUE@				src/band.h src/band.c
+
+@DAEMON_TRUE@unit_test_p2p_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_dpp_SOURCES = unit/test-dpp.c src/dpp-util.h src/dpp-util.c \
+@DAEMON_TRUE@				src/band.h src/band.c \
+@DAEMON_TRUE@				src/util.h src/util.c src/crypto.h \
+@DAEMON_TRUE@				src/crypto.c src/json.h src/json.c
+
+@DAEMON_TRUE@unit_test_dpp_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_json_SOURCES = unit/test-json.c src/json.h src/json.c shared/jsmn.h
+@DAEMON_TRUE@unit_test_json_LDADD = $(ell_ldadd)
+@DAEMON_TRUE@unit_test_nl80211util_SOURCES = unit/test-nl80211util.c \
+@DAEMON_TRUE@				src/nl80211util.h src/nl80211util.c \
+@DAEMON_TRUE@				src/band.h src/band.c \
+@DAEMON_TRUE@				src/ie.h src/ie.c \
+@DAEMON_TRUE@				src/util.h src/util.c
+
+@DAEMON_TRUE@unit_test_nl80211util_LDADD = $(ell_ldadd)
 @CLIENT_TRUE@unit_test_client_SOURCES = unit/test-client.c \
 @CLIENT_TRUE@				client/adapter.c \
 @CLIENT_TRUE@				client/agent.h client/agent.c \
@@ -1520,35 +1703,7 @@ unit_test_eap_mschapv2_LDADD = $(ell_ldadd)
 @CLIENT_TRUE@				client/network.h client/network.c \
 @CLIENT_TRUE@				client/properties.h client/properties.c
 
-@CLIENT_TRUE@unit_test_client_LDADD = $(ell_ldadd) $(READLINE_LIBS)
-unit_test_sae_SOURCES = unit/test-sae.c \
-				src/sae.h src/sae.c \
-				src/crypto.h src/crypto.c \
-				src/ie.h src/ie.c \
-				src/handshake.h src/handshake.c \
-				src/erp.h src/erp.c \
-				src/band.h src/band.c \
-				src/util.h src/util.c \
-				src/mpdu.h src/mpdu.c
-
-unit_test_sae_LDADD = $(ell_ldadd)
-unit_test_sae_LDFLAGS = -Wl,-wrap,l_ecc_supported_ike_groups
-unit_test_p2p_SOURCES = unit/test-p2p.c src/wscutil.h src/wscutil.c \
-				src/crypto.h src/crypto.c \
-				src/ie.h src/ie.c \
-				src/util.h src/util.c \
-				src/p2putil.h src/p2putil.c \
-				src/band.h src/band.c
-
-unit_test_p2p_LDADD = $(ell_ldadd)
-unit_test_dpp_SOURCES = unit/test-dpp.c src/dpp-util.h src/dpp-util.c \
-				src/band.h src/band.c \
-				src/util.h src/util.c src/crypto.h \
-				src/crypto.c src/json.h src/json.c
-
-unit_test_dpp_LDADD = $(ell_ldadd)
-unit_test_json_SOURCES = unit/test-json.c src/json.h src/json.c shared/jsmn.h
-unit_test_json_LDADD = $(ell_ldadd)
+@CLIENT_TRUE@unit_test_client_LDADD = $(ell_ldadd) $(client_ldadd)
 EXTRA_DIST = src/genbuiltin src/iwd.service.in src/net.connman.iwd.service \
 			wired/ead.service.in wired/net.connman.ead.service \
 			src/80-iwd.link src/pkcs8.conf unit/gencerts.cnf \
@@ -1557,9 +1712,9 @@ EXTRA_DIST = src/genbuiltin src/iwd.service.in src/net.connman.iwd.service \
 					$(patsubst %.5,%.rst, \
 					$(patsubst %.8,%.rst,$(manual_pages))))
 
-AM_CFLAGS = $(ell_cflags) -fvisibility=hidden \
+AM_CFLAGS = $(ell_cflags) $(client_cflags) -fvisibility=hidden \
 	-DUNITDIR=\""$(top_srcdir)/unit/"\" \
-	-DCERTDIR=\""$(top_builddir)/unit/"\" $(am__append_25)
+	-DCERTDIR=\""$(top_builddir)/unit/"\" $(am__append_27)
 CLEANFILES = src/iwd.service wired/ead.service
 DISTCHECK_CONFIGURE_FLAGS = --disable-dbus-policy --disable-systemd-service \
 				--enable-ofono \
@@ -1826,6 +1981,8 @@ ell/dhcp6-transport.lo: ell/$(am__dirstamp) \
 	ell/$(DEPDIR)/$(am__dirstamp)
 ell/acd.lo: ell/$(am__dirstamp) ell/$(DEPDIR)/$(am__dirstamp)
 ell/netconfig.lo: ell/$(am__dirstamp) ell/$(DEPDIR)/$(am__dirstamp)
+ell/sysctl.lo: ell/$(am__dirstamp) ell/$(DEPDIR)/$(am__dirstamp)
+ell/notifylist.lo: ell/$(am__dirstamp) ell/$(DEPDIR)/$(am__dirstamp)
 
 ell/libell-internal.la: $(ell_libell_internal_la_OBJECTS) $(ell_libell_internal_la_DEPENDENCIES) $(EXTRA_ell_libell_internal_la_DEPENDENCIES) ell/$(am__dirstamp)
 	$(AM_V_CCLD)$(LINK) $(am_ell_libell_internal_la_rpath) $(ell_libell_internal_la_OBJECTS) $(ell_libell_internal_la_LIBADD) $(LIBS)
@@ -1870,6 +2027,8 @@ client/diagnostic.$(OBJEXT): client/$(am__dirstamp) \
 client/daemon.$(OBJEXT): client/$(am__dirstamp) \
 	client/$(DEPDIR)/$(am__dirstamp)
 client/dpp.$(OBJEXT): client/$(am__dirstamp) \
+	client/$(DEPDIR)/$(am__dirstamp)
+client/dpp-pkex.$(OBJEXT): client/$(am__dirstamp) \
 	client/$(DEPDIR)/$(am__dirstamp)
 client/station-debug.$(OBJEXT): client/$(am__dirstamp) \
 	client/$(DEPDIR)/$(am__dirstamp)
@@ -1987,6 +2146,7 @@ src/dpp-util.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/json.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
 src/dpp.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
+src/udev.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
 src/eap.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
 src/eap-md5.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
@@ -2145,6 +2305,12 @@ unit/test-mpdu.$(OBJEXT): unit/$(am__dirstamp) \
 unit/test-mpdu$(EXEEXT): $(unit_test_mpdu_OBJECTS) $(unit_test_mpdu_DEPENDENCIES) $(EXTRA_unit_test_mpdu_DEPENDENCIES) unit/$(am__dirstamp)
 	@rm -f unit/test-mpdu$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(unit_test_mpdu_OBJECTS) $(unit_test_mpdu_LDADD) $(LIBS)
+unit/test-nl80211util.$(OBJEXT): unit/$(am__dirstamp) \
+	unit/$(DEPDIR)/$(am__dirstamp)
+
+unit/test-nl80211util$(EXEEXT): $(unit_test_nl80211util_OBJECTS) $(unit_test_nl80211util_DEPENDENCIES) $(EXTRA_unit_test_nl80211util_DEPENDENCIES) unit/$(am__dirstamp)
+	@rm -f unit/test-nl80211util$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(unit_test_nl80211util_OBJECTS) $(unit_test_nl80211util_LDADD) $(LIBS)
 unit/test-p2p.$(OBJEXT): unit/$(am__dirstamp) \
 	unit/$(DEPDIR)/$(am__dirstamp)
 
@@ -2225,6 +2391,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@client/$(DEPDIR)/device.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@client/$(DEPDIR)/diagnostic.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@client/$(DEPDIR)/display.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@client/$(DEPDIR)/dpp-pkex.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@client/$(DEPDIR)/dpp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@client/$(DEPDIR)/known-networks.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@client/$(DEPDIR)/main.Po@am__quote@ # am--include-marker
@@ -2272,6 +2439,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/net.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/netconfig.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/netlink.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/notifylist.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/path.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/pem.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/queue.Plo@am__quote@ # am--include-marker
@@ -2283,6 +2451,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/siphash.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/string.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/strv.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/sysctl.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/test.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/time.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ell/$(DEPDIR)/timeout.Plo@am__quote@ # am--include-marker
@@ -2363,6 +2532,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/station.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/storage.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sysfs.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/udev.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/util.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/watchlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/wiphy.Po@am__quote@ # am--include-marker
@@ -2387,6 +2557,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@unit/$(DEPDIR)/test-json.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@unit/$(DEPDIR)/test-kdf-sha256.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@unit/$(DEPDIR)/test-mpdu.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@unit/$(DEPDIR)/test-nl80211util.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@unit/$(DEPDIR)/test-p2p.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@unit/$(DEPDIR)/test-prf-sha1.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@unit/$(DEPDIR)/test-sae.Po@am__quote@ # am--include-marker
@@ -3068,6 +3239,13 @@ unit/test-json.log: unit/test-json$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+unit/test-nl80211util.log: unit/test-nl80211util$(EXEEXT)
+	@p='unit/test-nl80211util$(EXEEXT)'; \
+	b='unit/test-nl80211util'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 unit/test-client.log: unit/test-client$(EXEEXT)
 	@p='unit/test-client$(EXEEXT)'; \
 	b='unit/test-client'; \
@@ -3341,6 +3519,7 @@ distclean: distclean-am
 	-rm -f client/$(DEPDIR)/device.Po
 	-rm -f client/$(DEPDIR)/diagnostic.Po
 	-rm -f client/$(DEPDIR)/display.Po
+	-rm -f client/$(DEPDIR)/dpp-pkex.Po
 	-rm -f client/$(DEPDIR)/dpp.Po
 	-rm -f client/$(DEPDIR)/known-networks.Po
 	-rm -f client/$(DEPDIR)/main.Po
@@ -3388,6 +3567,7 @@ distclean: distclean-am
 	-rm -f ell/$(DEPDIR)/net.Plo
 	-rm -f ell/$(DEPDIR)/netconfig.Plo
 	-rm -f ell/$(DEPDIR)/netlink.Plo
+	-rm -f ell/$(DEPDIR)/notifylist.Plo
 	-rm -f ell/$(DEPDIR)/path.Plo
 	-rm -f ell/$(DEPDIR)/pem.Plo
 	-rm -f ell/$(DEPDIR)/queue.Plo
@@ -3399,6 +3579,7 @@ distclean: distclean-am
 	-rm -f ell/$(DEPDIR)/siphash.Plo
 	-rm -f ell/$(DEPDIR)/string.Plo
 	-rm -f ell/$(DEPDIR)/strv.Plo
+	-rm -f ell/$(DEPDIR)/sysctl.Plo
 	-rm -f ell/$(DEPDIR)/test.Plo
 	-rm -f ell/$(DEPDIR)/time.Plo
 	-rm -f ell/$(DEPDIR)/timeout.Plo
@@ -3479,6 +3660,7 @@ distclean: distclean-am
 	-rm -f src/$(DEPDIR)/station.Po
 	-rm -f src/$(DEPDIR)/storage.Po
 	-rm -f src/$(DEPDIR)/sysfs.Po
+	-rm -f src/$(DEPDIR)/udev.Po
 	-rm -f src/$(DEPDIR)/util.Po
 	-rm -f src/$(DEPDIR)/watchlist.Po
 	-rm -f src/$(DEPDIR)/wiphy.Po
@@ -3503,6 +3685,7 @@ distclean: distclean-am
 	-rm -f unit/$(DEPDIR)/test-json.Po
 	-rm -f unit/$(DEPDIR)/test-kdf-sha256.Po
 	-rm -f unit/$(DEPDIR)/test-mpdu.Po
+	-rm -f unit/$(DEPDIR)/test-nl80211util.Po
 	-rm -f unit/$(DEPDIR)/test-p2p.Po
 	-rm -f unit/$(DEPDIR)/test-prf-sha1.Po
 	-rm -f unit/$(DEPDIR)/test-sae.Po
@@ -3574,6 +3757,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f client/$(DEPDIR)/device.Po
 	-rm -f client/$(DEPDIR)/diagnostic.Po
 	-rm -f client/$(DEPDIR)/display.Po
+	-rm -f client/$(DEPDIR)/dpp-pkex.Po
 	-rm -f client/$(DEPDIR)/dpp.Po
 	-rm -f client/$(DEPDIR)/known-networks.Po
 	-rm -f client/$(DEPDIR)/main.Po
@@ -3621,6 +3805,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ell/$(DEPDIR)/net.Plo
 	-rm -f ell/$(DEPDIR)/netconfig.Plo
 	-rm -f ell/$(DEPDIR)/netlink.Plo
+	-rm -f ell/$(DEPDIR)/notifylist.Plo
 	-rm -f ell/$(DEPDIR)/path.Plo
 	-rm -f ell/$(DEPDIR)/pem.Plo
 	-rm -f ell/$(DEPDIR)/queue.Plo
@@ -3632,6 +3817,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ell/$(DEPDIR)/siphash.Plo
 	-rm -f ell/$(DEPDIR)/string.Plo
 	-rm -f ell/$(DEPDIR)/strv.Plo
+	-rm -f ell/$(DEPDIR)/sysctl.Plo
 	-rm -f ell/$(DEPDIR)/test.Plo
 	-rm -f ell/$(DEPDIR)/time.Plo
 	-rm -f ell/$(DEPDIR)/timeout.Plo
@@ -3712,6 +3898,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f src/$(DEPDIR)/station.Po
 	-rm -f src/$(DEPDIR)/storage.Po
 	-rm -f src/$(DEPDIR)/sysfs.Po
+	-rm -f src/$(DEPDIR)/udev.Po
 	-rm -f src/$(DEPDIR)/util.Po
 	-rm -f src/$(DEPDIR)/watchlist.Po
 	-rm -f src/$(DEPDIR)/wiphy.Po
@@ -3736,6 +3923,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f unit/$(DEPDIR)/test-json.Po
 	-rm -f unit/$(DEPDIR)/test-kdf-sha256.Po
 	-rm -f unit/$(DEPDIR)/test-mpdu.Po
+	-rm -f unit/$(DEPDIR)/test-nl80211util.Po
 	-rm -f unit/$(DEPDIR)/test-p2p.Po
 	-rm -f unit/$(DEPDIR)/test-prf-sha1.Po
 	-rm -f unit/$(DEPDIR)/test-sae.Po
@@ -3887,6 +4075,7 @@ ell/internal: Makefile
 	done > $@
 
 ell/ell.h: Makefile
+	$(AM_V_at)$(MKDIR_P) ell
 	$(AM_V_at)echo -n > $@
 	$(AM_V_GEN)for f in $(ell_headers) ; do \
 		echo "#include <$$f>" >> $@ ; \
@@ -3911,11 +4100,20 @@ install-data-local:
 @DAEMON_TRUE@@SYSTEMD_SERVICE_FALSE@	$(MKDIR_P) -m 700 $(DESTDIR)$(daemon_storagedir)
 @SYSTEMD_SERVICE_FALSE@@WIRED_TRUE@	$(MKDIR_P) -m 700 $(DESTDIR)$(wired_storagedir)
 
-clean-local:
+gcov-clean:
+@GCOV_TRUE@	-$(LCOV) --quiet --directory $(builddir) -z
+@GCOV_TRUE@	-rm -rf "$(builddir)/iwd-coverage.info" "$(builddir)/gcov"
+@GCOV_TRUE@	-find . -name "*.gcda" -o -name "*.gcov" -o -name "*.gcno" -delete
+
+clean-local: gcov-clean
 	-rm -f unit/cert-*.pem unit/cert-*.csr unit/cert-*.srl unit/*-settings.8021x
 
 maintainer-clean-local:
 	-rm -rf build-aux ell
+
+gcov-report:
+@GCOV_TRUE@	$(LCOV) --quiet --directory $(builddir) --capture --output-file "iwd-coverage.info"
+@GCOV_TRUE@	LANG=C $(GENHTML) --quiet --prefix $(builddir) --output-directory "$(builddir)/gcov" --title "iwd Code Coverage" --legend "$(builddir)/iwd-coverage.info"
 
 src/builtin.h: src/genbuiltin config.status
 	$(AM_V_at)$(MKDIR_P) $(@D)

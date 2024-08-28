@@ -53,6 +53,7 @@
 #include "src/scan.h"
 
 /* User configurable options */
+static double RANK_2G_FACTOR;
 static double RANK_5G_FACTOR;
 static double RANK_6G_FACTOR;
 static uint32_t SCAN_MAX_INTERVAL;
@@ -106,6 +107,8 @@ struct scan_request {
 	 * and save these since there may be additional scan commands to run.
 	 */
 	struct scan_freq_set *freqs_scanned;
+	/* Entire list of frequencies to scan */
+	struct scan_freq_set *scan_freqs;
 };
 
 struct scan_context {
@@ -129,6 +132,18 @@ struct scan_context {
 	 */
 	unsigned int get_fw_scan_cmd_id;
 	struct wiphy *wiphy;
+
+	unsigned int get_survey_cmd_id;
+};
+
+struct scan_survey {
+	int8_t noise;
+};
+
+struct scan_survey_results {
+	struct scan_survey survey_2_4[14];
+	struct scan_survey survey_5[196];
+	struct scan_survey survey_6[233];
 };
 
 struct scan_results {
@@ -137,6 +152,9 @@ struct scan_results {
 	uint64_t time_stamp;
 	struct scan_request *sr;
 	struct scan_freq_set *freqs;
+	struct scan_survey_results survey;
+
+	bool survey_parsed : 1;
 };
 
 static bool start_next_scan_request(struct wiphy_radio_work_item *item);
@@ -169,6 +187,7 @@ static void scan_request_free(struct wiphy_radio_work_item *item)
 	l_queue_destroy(sr->cmds, (l_queue_destroy_func_t) l_genl_msg_unref);
 
 	scan_freq_set_free(sr->freqs_scanned);
+	scan_freq_set_free(sr->scan_freqs);
 
 	l_free(sr);
 }
@@ -212,6 +231,9 @@ static void scan_context_free(struct scan_context *sc)
 
 	if (sc->get_fw_scan_cmd_id && nl80211)
 		l_genl_family_cancel(nl80211, sc->get_fw_scan_cmd_id);
+
+	if (sc->get_survey_cmd_id && nl80211)
+		l_genl_family_cancel(nl80211, sc->get_survey_cmd_id);
 
 	wiphy_state_watch_remove(sc->wiphy, sc->wiphy_watch_id);
 
@@ -338,20 +360,6 @@ static bool scan_mac_address_randomization_is_disabled(void)
 		return false;
 
 	return disabled;
-}
-
-static struct scan_freq_set *scan_get_allowed_freqs(struct scan_context *sc)
-{
-	struct scan_freq_set *allowed = scan_freq_set_new();
-
-	scan_freq_set_merge(allowed, wiphy_get_supported_freqs(sc->wiphy));
-
-	if (!wiphy_constrain_freq_set(sc->wiphy, allowed)) {
-		scan_freq_set_free(allowed);
-		allowed = NULL;
-	}
-
-	return allowed;
 }
 
 static struct l_genl_msg *scan_build_cmd(struct scan_context *sc,
@@ -581,22 +589,25 @@ static void scan_cmds_add(struct scan_request *sr, struct scan_context *sc,
 				bool passive,
 				const struct scan_parameters *params)
 {
+	uint32_t bands = BAND_FREQ_2_4_GHZ | BAND_FREQ_5_GHZ | BAND_FREQ_6_GHZ;
 	unsigned int i;
 	struct scan_freq_set *subsets[2] = { 0 };
-	struct scan_freq_set *allowed = scan_get_allowed_freqs(sc);
 	const struct scan_freq_set *supported =
 					wiphy_get_supported_freqs(sc->wiphy);
 
 	/*
-	 * If 6GHz is not possible, or already allowed, or the frequencies are
-	 * explicit don't break up the request.
+	 * No frequencies, just include the entire supported list and let the
+	 * kernel filter out any disabled frequencies
 	 */
-	if (!(scan_freq_set_get_bands(supported) & BAND_FREQ_6_GHZ) ||
-			(scan_freq_set_get_bands(allowed) & BAND_FREQ_6_GHZ) ||
-			params->freqs) {
-		scan_freq_set_free(allowed);
+	if (!params->freqs)
+		sr->scan_freqs = scan_freq_set_clone(supported, bands);
+	else
+		sr->scan_freqs = scan_freq_set_clone(params->freqs, bands);
+
+	/* If 6GHz is not possible or already allowed don't split the request */
+	if (wiphy_band_is_disabled(sc->wiphy, BAND_FREQ_6_GHZ) != 1) {
 		scan_build_next_cmd(sr->cmds, sc, passive,
-						params, params->freqs);
+						params, sr->scan_freqs);
 		return;
 	}
 
@@ -612,10 +623,8 @@ static void scan_cmds_add(struct scan_request *sr, struct scan_context *sc,
 	 * extra 6GHz-only passive scan can be appended to this request
 	 * at that time.
 	 */
-	subsets[0] = scan_freq_set_clone(allowed, BAND_FREQ_2_4_GHZ);
-	subsets[1] = scan_freq_set_clone(allowed, BAND_FREQ_5_GHZ);
-
-	scan_freq_set_free(allowed);
+	subsets[0] = scan_freq_set_clone(sr->scan_freqs, BAND_FREQ_2_4_GHZ);
+	subsets[1] = scan_freq_set_clone(sr->scan_freqs, BAND_FREQ_5_GHZ);
 
 	for(i = 0; i < L_ARRAY_SIZE(subsets); i++) {
 		if (!scan_freq_set_isempty(subsets[i]))
@@ -993,9 +1002,43 @@ static void scan_periodic_destroy(void *user_data)
 	sc->sp.id = 0;
 }
 
+static struct scan_freq_set *scan_periodic_get_freqs(struct scan_context *sc)
+{
+	uint32_t band_mask = 0;
+	struct scan_freq_set *freqs;
+	const struct scan_freq_set *supported =
+					wiphy_get_supported_freqs(sc->wiphy);
+
+	if (RANK_2G_FACTOR)
+		band_mask |= BAND_FREQ_2_4_GHZ;
+	if (RANK_5G_FACTOR)
+		band_mask |= BAND_FREQ_5_GHZ;
+	if (RANK_6G_FACTOR)
+		band_mask |= BAND_FREQ_6_GHZ;
+
+	freqs = scan_freq_set_clone(supported, band_mask);
+	if (scan_freq_set_isempty(freqs)) {
+		scan_freq_set_free(freqs);
+		freqs = NULL;
+	}
+
+	return freqs;
+}
+
 static bool scan_periodic_queue(struct scan_context *sc)
 {
 	struct scan_parameters params = {};
+	struct scan_freq_set *freqs = scan_periodic_get_freqs(sc);
+
+	/*
+	 * If this happens its due to the user disabling all bands. This will
+	 * cause IWD to never issue another periodic scan so warn the user of
+	 * this.
+	 */
+	if (L_WARN_ON(!freqs))
+		return false;
+
+	params.freqs = freqs;
 
 	if (sc->sp.needs_active_scan && known_networks_has_hidden()) {
 		params.randomize_mac_addr_hint = true;
@@ -1012,6 +1055,8 @@ static bool scan_periodic_queue(struct scan_context *sc)
 					scan_periodic_triggered,
 					scan_periodic_notify, sc,
 					scan_periodic_destroy);
+
+	scan_freq_set_free(freqs);
 
 	return sc->sp.id != 0;
 }
@@ -1215,9 +1260,6 @@ static void scan_parse_vendor_specific(struct scan_bss *bss, const void *data,
 		bss->cost_flags = cost_flags;
 		return;
 	}
-
-	if (is_ie_default_sae_group_oui(data, len))
-		bss->force_default_sae_group = true;
 }
 
 /*
@@ -1229,8 +1271,6 @@ static bool scan_parse_advertisement_protocol(struct scan_bss *bss,
 						const void *data, uint16_t len)
 {
 	const uint8_t *ptr = data;
-
-	l_debug("");
 
 	while (len) {
 		/*
@@ -1305,7 +1345,7 @@ static bool scan_parse_bss_information_elements(struct scan_bss *bss,
 				l_warn("Unable to parse BSS Load IE for "
 					MAC, MAC_STR(bss->addr));
 			else
-				l_debug("Load: %u/255", bss->utilization);
+				bss->have_utilization = true;
 
 			break;
 		case IE_TYPE_VENDOR_SPECIFIC:
@@ -1381,10 +1421,24 @@ static bool scan_parse_bss_information_elements(struct scan_bss *bss,
 			 * Currently only Proxy ARP bit (12) is checked, and if
 			 * not found, this is not a fatal error.
 			 */
-			if (iter.len < 2)
-				break;
+			if (iter.len >= 2)
+				bss->proxy_arp = test_bit(iter.data, 12);
 
-			bss->proxy_arp = test_bit(iter.data, 12);
+			/*
+			 * 802.11-2020 Table 9-153
+			 *
+			 * The spec merely mentions the "exclusive" bit and
+			 * doesn't enforce a requirement to check it anywhere.
+			 * But if set it would indicate the AP will only accept
+			 * auths when a password ID is used so store this in
+			 * order to fail early if no ID is set.
+			 */
+			if (iter.len >= 11) {
+				bss->sae_pw_id_used = test_bit(iter.data, 81);
+				bss->sae_pw_id_exclusive =
+							test_bit(iter.data, 82);
+			}
+
 		}
 	}
 
@@ -1481,7 +1535,6 @@ static struct scan_bss *scan_parse_attr_bss(struct l_genl_attr *attr,
 	size_t beacon_ies_len;
 
 	bss = l_new(struct scan_bss, 1);
-	bss->utilization = 127;
 	bss->source_frame = SCAN_BSS_BEACON;
 
 	while (l_genl_attr_next(attr, &type, &len, &data)) {
@@ -1629,6 +1682,8 @@ static void scan_bss_compute_rank(struct scan_bss *bss)
 {
 	static const double RANK_HIGH_UTILIZATION_FACTOR = 0.8;
 	static const double RANK_LOW_UTILIZATION_FACTOR = 1.2;
+	static const double RANK_HIGH_SNR_FACTOR = 1.2;
+	static const double RANK_LOW_SNR_FACTOR = 0.8;
 	double rank;
 	uint32_t irank;
 	/*
@@ -1637,6 +1692,9 @@ static void scan_bss_compute_rank(struct scan_bss *bss)
 	double max_rate = 9607800000;
 
 	rank = (double)bss->data_rate / max_rate * USHRT_MAX;
+
+	if (bss->frequency < 3000)
+		rank *= RANK_2G_FACTOR;
 
 	/* Prefer 5G networks over 2.4G and 6G */
 	if (bss->frequency >= 4900 && bss->frequency < 5900)
@@ -1647,10 +1705,19 @@ static void scan_bss_compute_rank(struct scan_bss *bss)
 		rank *= RANK_6G_FACTOR;
 
 	/* Rank loaded APs lower and lightly loaded APs higher */
-	if (bss->utilization >= 192)
-		rank *= RANK_HIGH_UTILIZATION_FACTOR;
-	else if (bss->utilization <= 63)
-		rank *= RANK_LOW_UTILIZATION_FACTOR;
+	if (bss->have_utilization) {
+		if (bss->utilization >= 192)
+			rank *= RANK_HIGH_UTILIZATION_FACTOR;
+		else if (bss->utilization <= 63)
+			rank *= RANK_LOW_UTILIZATION_FACTOR;
+	}
+
+	if (bss->have_snr) {
+		if (bss->snr <= 15)
+			rank *= RANK_LOW_SNR_FACTOR;
+		else if (bss->snr >= 30)
+			rank *= RANK_HIGH_SNR_FACTOR;
+	}
 
 	irank = rank;
 
@@ -1670,7 +1737,6 @@ struct scan_bss *scan_bss_new_from_probe_req(const struct mmpdu_header *mpdu,
 
 	bss = l_new(struct scan_bss, 1);
 	memcpy(bss->addr, mpdu->address_2, 6);
-	bss->utilization = 127;
 	bss->source_frame = SCAN_BSS_PROBE_REQ;
 	bss->frequency = frequency;
 	bss->signal_strength = rssi;
@@ -1787,6 +1853,41 @@ int scan_bss_rank_compare(const void *a, const void *b, void *user_data)
 	return (bss->rank > new_bss->rank) ? 1 : -1;
 }
 
+static bool scan_survey_get_snr(struct scan_results *results,
+					uint32_t freq, int32_t signal,
+					int8_t *snr)
+{
+	uint8_t channel;
+	enum band_freq band;
+	int8_t noise = 0;
+
+	if (!results->survey_parsed)
+		return false;
+
+	channel = band_freq_to_channel(freq, &band);
+	if (L_WARN_ON(!channel))
+		return false;
+
+	switch (band) {
+	case BAND_FREQ_2_4_GHZ:
+		noise = results->survey.survey_2_4[channel].noise;
+		break;
+	case BAND_FREQ_5_GHZ:
+		noise = results->survey.survey_5[channel].noise;
+		break;
+	case BAND_FREQ_6_GHZ:
+		noise = results->survey.survey_6[channel].noise;
+		break;
+	}
+
+	if (noise) {
+		*snr = signal - noise;
+		return true;
+	}
+
+	return false;
+}
+
 static void get_scan_callback(struct l_genl_msg *msg, void *user_data)
 {
 	struct scan_results *results = user_data;
@@ -1794,8 +1895,6 @@ static void get_scan_callback(struct l_genl_msg *msg, void *user_data)
 	struct scan_bss *bss;
 	uint64_t wdev_id;
 	uint32_t seen_ms_ago = 0;
-
-	l_debug("get_scan_callback");
 
 	if (nl80211_parse_attrs(msg, NL80211_ATTR_WDEV, &wdev_id,
 					NL80211_ATTR_UNSPEC) < 0)
@@ -1813,6 +1912,10 @@ static void get_scan_callback(struct l_genl_msg *msg, void *user_data)
 	if (!bss->time_stamp)
 		bss->time_stamp = results->time_stamp -
 					seen_ms_ago * L_USEC_PER_MSEC;
+
+	bss->have_snr = scan_survey_get_snr(results, bss->frequency,
+						bss->signal_strength / 100,
+						&bss->snr);
 
 	scan_bss_compute_rank(bss);
 	l_queue_insert(results->bss_list, bss, scan_bss_rank_compare, NULL);
@@ -1875,8 +1978,6 @@ static void get_scan_done(void *user)
 	struct scan_results *results = user;
 	struct scan_context *sc = results->sc;
 
-	l_debug("get_scan_done");
-
 	sc->get_scan_cmd_id = 0;
 
 	if (!results->sr || !results->sr->canceled)
@@ -1892,11 +1993,88 @@ static void get_scan_done(void *user)
 	l_free(results);
 }
 
+static void get_survey_callback(struct l_genl_msg *msg, void *user_data)
+{
+	struct scan_results *results = user_data;
+	struct scan_survey_results *survey = &results->survey;
+	struct l_genl_attr attr;
+	uint32_t freq;
+	int8_t noise;
+	uint8_t channel;
+	enum band_freq band;
+
+	if (nl80211_parse_attrs(msg, NL80211_ATTR_SURVEY_INFO, &attr,
+				NL80211_ATTR_UNSPEC) < 0)
+		return;
+
+	if (nl80211_parse_nested(&attr, NL80211_ATTR_SURVEY_INFO,
+					NL80211_SURVEY_INFO_FREQUENCY, &freq,
+					NL80211_SURVEY_INFO_NOISE, &noise,
+					NL80211_ATTR_UNSPEC) < 0)
+		return;
+
+	channel = band_freq_to_channel(freq, &band);
+	if (!channel)
+		return;
+
+	/* At least one frequency was surveyed */
+	results->survey_parsed = true;
+
+	switch (band) {
+	case BAND_FREQ_2_4_GHZ:
+		survey->survey_2_4[channel].noise = noise;
+		break;
+	case BAND_FREQ_5_GHZ:
+		survey->survey_5[channel].noise = noise;
+		break;
+	case BAND_FREQ_6_GHZ:
+		survey->survey_6[channel].noise = noise;
+		break;
+	}
+}
+
+static void get_results(struct scan_results *results)
+{
+	struct l_genl_msg *scan_msg;
+
+	scan_msg = l_genl_msg_new_sized(NL80211_CMD_GET_SCAN, 8);
+
+	l_genl_msg_append_attr(scan_msg, NL80211_ATTR_WDEV, 8,
+					&results->sc->wdev_id);
+	results->sc->get_scan_cmd_id = l_genl_family_dump(nl80211, scan_msg,
+						get_scan_callback,
+						results, get_scan_done);
+}
+
+static void get_survey_done(void *user_data)
+{
+	struct scan_results *results = user_data;
+	struct scan_context *sc = results->sc;
+
+	sc->get_survey_cmd_id = 0;
+
+	get_results(results);
+}
+
+static bool scan_survey(struct scan_results *results)
+{
+	struct scan_context *sc = results->sc;
+	struct l_genl_msg *survey_msg;
+
+	survey_msg = l_genl_msg_new(NL80211_CMD_GET_SURVEY);
+	l_genl_msg_append_attr(survey_msg, NL80211_ATTR_WDEV, 8,
+				&sc->wdev_id);
+	sc->get_survey_cmd_id = l_genl_family_dump(nl80211, survey_msg,
+						get_survey_callback, results,
+						get_survey_done);
+
+	return sc->get_survey_cmd_id != 0;
+}
+
 static void scan_get_results(struct scan_context *sc, struct scan_request *sr,
 				struct scan_freq_set *freqs)
 {
 	struct scan_results *results;
-	struct l_genl_msg *scan_msg;
 
 	results = l_new(struct scan_results, 1);
 	results->sc = sc;
@@ -1905,13 +2083,12 @@ static void scan_get_results(struct scan_context *sc, struct scan_request *sr,
 	results->bss_list = l_queue_new();
 	results->freqs = freqs;
 
-	scan_msg = l_genl_msg_new_sized(NL80211_CMD_GET_SCAN, 8);
+	if (scan_survey(results))
+		return;
+	else
+		l_warn("failed to start a scan survey");
 
-	l_genl_msg_append_attr(scan_msg, NL80211_ATTR_WDEV, 8,
-					&sc->wdev_id);
-	sc->get_scan_cmd_id = l_genl_family_dump(nl80211, scan_msg,
-						get_scan_callback,
-						results, get_scan_done);
+	get_results(results);
 }
 
 static void scan_wiphy_watch(struct wiphy *wiphy,
@@ -1922,9 +2099,8 @@ static void scan_wiphy_watch(struct wiphy *wiphy,
 	struct scan_request *sr = NULL;
 	struct l_genl_msg *msg = NULL;
 	struct scan_parameters params = { 0 };
-	struct scan_freq_set *freqs_6ghz;
-	struct scan_freq_set *allowed;
-	bool allow_6g;
+	_auto_(scan_freq_set_free) struct scan_freq_set *freqs_6ghz = NULL;
+	int disabled;
 
 	/* Only care about completed regulatory dumps */
 	if (event != WIPHY_STATE_WATCH_EVENT_REGDOM_DONE)
@@ -1938,29 +2114,26 @@ static void scan_wiphy_watch(struct wiphy *wiphy,
 	if (!sr)
 		return;
 
-	allowed = scan_get_allowed_freqs(sc);
-	allow_6g = scan_freq_set_get_bands(allowed) & BAND_FREQ_6_GHZ;
-
 	/*
 	 * This update did not allow 6GHz, or the original request was
 	 * not expecting 6GHz. The periodic scan should now be ended.
 	 */
-	if (!allow_6g || !sr->split) {
+	disabled = wiphy_band_is_disabled(wiphy, BAND_FREQ_6_GHZ);
+	if (scan_freq_set_get_bands(sr->freqs_scanned) & BAND_FREQ_6_GHZ ||
+			disabled == 1 || !sr->split) {
 		scan_get_results(sc, sr, sr->freqs_scanned);
-		goto free_allowed;
+		return;
 	}
+
+	freqs_6ghz = scan_freq_set_clone(sr->scan_freqs, BAND_FREQ_6_GHZ);
 
 	/*
 	 * At this point we know there is an ongoing periodic scan.
 	 * Create a new 6GHz passive scan request and append to the
 	 * command list
 	 */
-	freqs_6ghz = scan_freq_set_clone(allowed, BAND_FREQ_6_GHZ);
-
 	msg = scan_build_cmd(sc, false, true, &params, freqs_6ghz);
 	l_queue_push_tail(sr->cmds, msg);
-
-	scan_freq_set_free(freqs_6ghz);
 
 	/*
 	 * If this periodic scan is at the top of the queue, continue
@@ -1968,9 +2141,6 @@ static void scan_wiphy_watch(struct wiphy *wiphy,
 	 */
 	if (l_queue_peek_head(sc->requests) == sr)
 		start_next_scan_request(&sr->work);
-
-free_allowed:
-	scan_freq_set_free(allowed);
 }
 
 static struct scan_context *scan_context_new(uint64_t wdev_id)
@@ -1995,16 +2165,14 @@ static struct scan_context *scan_context_new(uint64_t wdev_id)
 
 static bool scan_parse_flush_flag_from_msg(struct l_genl_msg *msg)
 {
-	struct l_genl_attr attr;
-	uint16_t type, len;
-	const void *data;
+	uint32_t flags;
 
-	if (!l_genl_attr_init(&attr, msg))
+	if (nl80211_parse_attrs(msg, NL80211_ATTR_SCAN_FLAGS, &flags,
+					NL80211_ATTR_UNSPEC) < 0)
 		return false;
 
-	while (l_genl_attr_next(&attr, &type, &len, &data))
-		if (type == NL80211_SCAN_FLAG_FLUSH)
-			return true;
+	if (flags & NL80211_SCAN_FLAG_FLUSH)
+		return true;
 
 	return false;
 }
@@ -2314,6 +2482,37 @@ bool scan_get_firmware_scan(uint64_t wdev_id, scan_notify_func_t notify,
 	return true;
 }
 
+double scan_get_band_rank_modifier(enum band_freq band)
+{
+	const struct l_settings *config = iwd_get_config();
+	double modifier;
+	char *str, *str_legacy;
+
+	switch (band) {
+	case BAND_FREQ_2_4_GHZ:
+		str = "BandModifier2_4GHz";
+		str_legacy = "BandModifier2_4Ghz";
+		break;
+	case BAND_FREQ_5_GHZ:
+		str = "BandModifier5GHz";
+		str_legacy = "BandModifier5Ghz";
+		break;
+	case BAND_FREQ_6_GHZ:
+		str = "BandModifier6GHz";
+		str_legacy = "BandModifier6Ghz";
+		break;
+	default:
+		l_warn("Unhandled band %u", band);
+		return 0.0;
+	}
+
+	if (!l_settings_get_double(config, "Rank", str, &modifier) &&
+		!l_settings_get_double(config, "Rank", str_legacy, &modifier))
+		modifier = 1.0;
+
+	return modifier;
+}
+
 bool scan_wdev_add(uint64_t wdev_id)
 {
 	struct scan_context *sc;
@@ -2363,13 +2562,9 @@ static int scan_init(void)
 
 	scan_contexts = l_queue_new();
 
-	if (!l_settings_get_double(config, "Rank", "BandModifier5Ghz",
-					&RANK_5G_FACTOR))
-		RANK_5G_FACTOR = 1.0;
-
-	if (!l_settings_get_double(config, "Rank", "BandModifier6Ghz",
-					&RANK_6G_FACTOR))
-		RANK_6G_FACTOR = 1.0;
+	RANK_2G_FACTOR = scan_get_band_rank_modifier(BAND_FREQ_2_4_GHZ);
+	RANK_5G_FACTOR = scan_get_band_rank_modifier(BAND_FREQ_5_GHZ);
+	RANK_6G_FACTOR = scan_get_band_rank_modifier(BAND_FREQ_6_GHZ);
 
 	if (!l_settings_get_uint(config, "Scan", "InitialPeriodicScanInterval",
 					&SCAN_INIT_INTERVAL))

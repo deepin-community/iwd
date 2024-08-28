@@ -29,6 +29,7 @@ struct p2p_beacon;
 struct mmpdu_header;
 struct wiphy;
 enum security;
+enum band_freq;
 
 enum scan_state {
 	SCAN_STATE_NOT_RUNNING,
@@ -74,6 +75,7 @@ struct scan_bss {
 	uint64_t parent_tsf;
 	uint8_t *wfd;		/* Concatenated WFD IEs */
 	ssize_t wfd_size;	/* Size of Concatenated WFD IEs */
+	int8_t snr;
 	bool mde_present : 1;
 	bool cc_present : 1;
 	bool cap_rm_neighbor_report : 1;
@@ -81,12 +83,15 @@ struct scan_bss {
 	bool vht_capable : 1;
 	bool anqp_capable : 1;
 	bool hs20_capable : 1;
-	bool force_default_sae_group : 1;
 	bool proxy_arp : 1;
 	bool hs20_dgaf_disable : 1;
 	uint8_t cost_level : 3;
 	uint8_t cost_flags : 4;
 	bool dpp_configurator : 1;
+	bool sae_pw_id_used : 1;
+	bool sae_pw_id_exclusive : 1;
+	bool have_snr : 1;
+	bool have_utilization : 1;
 };
 
 struct scan_parameters {
@@ -169,6 +174,8 @@ struct scan_bss *scan_bss_new_from_probe_req(const struct mmpdu_header *mpdu,
 						const uint8_t *body,
 						size_t body_len,
 						uint32_t frequency, int rssi);
+
+double scan_get_band_rank_modifier(enum band_freq band);
 
 bool scan_wdev_add(uint64_t wdev_id);
 bool scan_wdev_remove(uint64_t wdev_id);

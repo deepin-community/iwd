@@ -32,9 +32,12 @@
 
 #include "src/nl80211util.h"
 #include "src/band.h"
+#include "src/ie.h"
+#include "src/handshake.h"
 #include "src/util.h"
 
 typedef bool (*attr_handler)(const void *data, uint16_t len, void *o);
+typedef attr_handler (*handler_for_type)(int type);
 
 static bool extract_ifindex(const void *data, uint16_t len, void *o)
 {
@@ -134,9 +137,7 @@ static bool extract_nested(const void *data, uint16_t len, void *o)
 	const struct l_genl_attr *outer = data;
 	struct l_genl_attr *nested = o;
 
-	l_genl_attr_recurse(outer, nested);
-
-	return true;
+	return l_genl_attr_recurse(outer, nested);
 }
 
 static bool extract_u8(const void *data, uint16_t len, void *o)
@@ -150,7 +151,7 @@ static bool extract_u8(const void *data, uint16_t len, void *o)
 	return true;
 }
 
-static attr_handler handler_for_type(enum nl80211_attrs type)
+static attr_handler handler_for_nl80211(int type)
 {
 	switch (type) {
 	case NL80211_ATTR_IFINDEX:
@@ -158,6 +159,7 @@ static attr_handler handler_for_type(enum nl80211_attrs type)
 	case NL80211_ATTR_WIPHY:
 	case NL80211_ATTR_IFTYPE:
 	case NL80211_ATTR_KEY_TYPE:
+	case NL80211_ATTR_SCAN_FLAGS:
 		return extract_uint32;
 	case NL80211_ATTR_WDEV:
 	case NL80211_ATTR_COOKIE:
@@ -181,9 +183,37 @@ static attr_handler handler_for_type(enum nl80211_attrs type)
 	case NL80211_ATTR_FRAME:
 		return extract_iovec;
 	case NL80211_ATTR_WIPHY_BANDS:
+	case NL80211_ATTR_SURVEY_INFO:
+	case NL80211_ATTR_KEY:
 		return extract_nested;
 	case NL80211_ATTR_KEY_IDX:
 		return extract_u8;
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
+static attr_handler handler_for_survey_info(int type)
+{
+	switch (type) {
+	case NL80211_SURVEY_INFO_NOISE:
+		return extract_u8;
+	case NL80211_SURVEY_INFO_FREQUENCY:
+		return extract_uint32;
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
+static attr_handler handler_for_key(int type)
+{
+	switch (type) {
+	case NL80211_KEY_SEQ:
+		return extract_iovec;
 	default:
 		break;
 	}
@@ -198,10 +228,9 @@ struct attr_entry {
 	bool present : 1;
 };
 
-int nl80211_parse_attrs(struct l_genl_msg *msg, int tag, ...)
+static int parse_attrs(struct l_genl_attr *attr, handler_for_type handler,
+			int tag, va_list args)
 {
-	struct l_genl_attr attr;
-	va_list args;
 	struct l_queue *entries;
 	const struct l_queue_entry *e;
 	struct attr_entry *entry;
@@ -210,10 +239,6 @@ int nl80211_parse_attrs(struct l_genl_msg *msg, int tag, ...)
 	const void *data;
 	int ret;
 
-	if (!l_genl_attr_init(&attr, msg))
-		return -EINVAL;
-
-	va_start(args, tag);
 	entries = l_queue_new();
 	ret = -ENOSYS;
 
@@ -222,7 +247,7 @@ int nl80211_parse_attrs(struct l_genl_msg *msg, int tag, ...)
 
 		entry->type = tag;
 		entry->data = va_arg(args, void *);
-		entry->handler = handler_for_type(tag);
+		entry->handler = handler(tag);
 		l_queue_push_tail(entries, entry);
 
 		if (!entry->handler)
@@ -231,9 +256,7 @@ int nl80211_parse_attrs(struct l_genl_msg *msg, int tag, ...)
 		tag = va_arg(args, enum nl80211_attrs);
 	}
 
-	va_end(args);
-
-	while (l_genl_attr_next(&attr, &type, &len, &data)) {
+	while (l_genl_attr_next(attr, &type, &len, &data)) {
 		for (e = l_queue_get_entries(entries); e; e = e->next) {
 			entry = e->data;
 
@@ -251,7 +274,7 @@ int nl80211_parse_attrs(struct l_genl_msg *msg, int tag, ...)
 
 		/* For nested attributes use the outer attribute as data */
 		if (entry->handler == extract_nested)
-			data = &attr;
+			data = attr;
 
 		if (!entry->handler(data, len, entry->data)) {
 			ret = -EINVAL;
@@ -284,6 +307,92 @@ done:
 	return ret;
 }
 
+int nl80211_parse_attrs(struct l_genl_msg *msg, int tag, ...)
+{
+	struct l_genl_attr attr;
+	va_list args;
+	int ret;
+
+	if (!l_genl_attr_init(&attr, msg))
+		return -EINVAL;
+
+	va_start(args, tag);
+
+	ret = parse_attrs(&attr, handler_for_nl80211, tag, args);
+
+	va_end(args);
+
+	return ret;
+}
+
+int nl80211_parse_nested(struct l_genl_attr *attr, int type, int tag, ...)
+{
+	handler_for_type handler;
+	va_list args;
+	int ret;
+
+	switch (type) {
+	case NL80211_ATTR_SURVEY_INFO:
+		handler = handler_for_survey_info;
+		break;
+	case NL80211_ATTR_KEY:
+		handler = handler_for_key;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	va_start(args, tag);
+
+	ret = parse_attrs(attr, handler, tag, args);
+
+	va_end(args);
+
+	return ret;
+}
+
+struct l_genl_msg *nl80211_build_deauthenticate(uint32_t ifindex,
+						const uint8_t addr[static 6],
+						uint16_t reason_code)
+{
+	struct l_genl_msg *msg;
+
+	msg = l_genl_msg_new_sized(NL80211_CMD_DEAUTHENTICATE, 128);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_IFINDEX, 4, &ifindex);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_REASON_CODE, 2, &reason_code);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
+
+	return msg;
+}
+
+struct l_genl_msg *nl80211_build_disconnect(uint32_t ifindex,
+							uint16_t reason_code)
+{
+	struct l_genl_msg *msg;
+
+	msg = l_genl_msg_new_sized(NL80211_CMD_DISCONNECT, 64);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_IFINDEX, 4, &ifindex);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_REASON_CODE, 2, &reason_code);
+
+	return msg;
+}
+
+struct l_genl_msg *nl80211_build_del_station(uint32_t ifindex,
+						const uint8_t addr[static 6],
+						uint16_t reason_code,
+						uint8_t subtype)
+{
+	struct l_genl_msg *msg;
+
+	msg = l_genl_msg_new_sized(NL80211_CMD_DEL_STATION, 64);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_IFINDEX, 4, &ifindex);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_MAC, 6, addr);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_MGMT_SUBTYPE, 1, &subtype);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_REASON_CODE, 2, &reason_code);
+
+	return msg;
+}
+
 struct l_genl_msg *nl80211_build_new_key_group(uint32_t ifindex, uint32_t cipher,
 					uint8_t key_id, const uint8_t *key,
 					size_t key_len, const uint8_t *ctr,
@@ -312,6 +421,79 @@ struct l_genl_msg *nl80211_build_new_key_group(uint32_t ifindex, uint32_t cipher
 	l_genl_msg_append_attr(msg, NL80211_KEY_DEFAULT_TYPE_MULTICAST,
 					0, NULL);
 	l_genl_msg_leave_nested(msg);
+	l_genl_msg_leave_nested(msg);
+
+	return msg;
+}
+
+struct l_genl_msg *nl80211_build_new_key_pairwise(uint32_t ifindex,
+						uint32_t cipher,
+						const uint8_t addr[static 6],
+						const uint8_t *tk,
+						size_t tk_len,
+						uint8_t key_id)
+{
+	struct l_genl_msg *msg;
+
+	msg = l_genl_msg_new_sized(NL80211_CMD_NEW_KEY, 512);
+
+	l_genl_msg_append_attr(msg, NL80211_ATTR_KEY_DATA, tk_len, tk);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_KEY_CIPHER, 4, &cipher);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_KEY_IDX, 1, &key_id);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_IFINDEX, 4, &ifindex);
+
+	return msg;
+}
+
+struct l_genl_msg *nl80211_build_new_rx_key_pairwise(uint32_t ifindex,
+						uint32_t cipher,
+						const uint8_t addr[static 6],
+						const uint8_t *tk,
+						size_t tk_len,
+						uint8_t key_id)
+{
+	uint8_t key_mode = NL80211_KEY_NO_TX;
+	uint32_t key_type = NL80211_KEYTYPE_PAIRWISE;
+	struct l_genl_msg *msg;
+
+	msg = l_genl_msg_new_sized(NL80211_CMD_NEW_KEY, 512);
+
+	l_genl_msg_append_attr(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_IFINDEX, 4, &ifindex);
+
+	l_genl_msg_enter_nested(msg, NL80211_ATTR_KEY);
+
+	l_genl_msg_append_attr(msg, NL80211_KEY_DATA, tk_len, tk);
+	l_genl_msg_append_attr(msg, NL80211_KEY_CIPHER, 4, &cipher);
+	l_genl_msg_append_attr(msg, NL80211_KEY_IDX, 1, &key_id);
+	l_genl_msg_append_attr(msg, NL80211_KEY_MODE, 1, &key_mode);
+	l_genl_msg_append_attr(msg, NL80211_KEY_TYPE, 4, &key_type);
+
+	l_genl_msg_leave_nested(msg);
+
+	return msg;
+}
+
+struct l_genl_msg *nl80211_build_rekey_offload(uint32_t ifindex,
+						const uint8_t *kek,
+						const uint8_t *kck,
+						uint64_t replay_ctr)
+{
+	struct l_genl_msg *msg;
+
+	msg = l_genl_msg_new_sized(NL80211_CMD_SET_REKEY_OFFLOAD, 512);
+
+	l_genl_msg_append_attr(msg, NL80211_ATTR_IFINDEX, 4, &ifindex);
+
+	l_genl_msg_enter_nested(msg, NL80211_ATTR_REKEY_DATA);
+	l_genl_msg_append_attr(msg, NL80211_REKEY_DATA_KEK,
+					NL80211_KEK_LEN, kek);
+	l_genl_msg_append_attr(msg, NL80211_REKEY_DATA_KCK,
+					NL80211_KCK_LEN, kck);
+	l_genl_msg_append_attr(msg, NL80211_REKEY_DATA_REPLAY_CTR,
+			NL80211_REPLAY_CTR_LEN, &replay_ctr);
+
 	l_genl_msg_leave_nested(msg);
 
 	return msg;
@@ -402,46 +584,29 @@ struct l_genl_msg *nl80211_build_get_key(uint32_t ifindex, uint8_t key_index)
 
 const void *nl80211_parse_get_key_seq(struct l_genl_msg *msg)
 {
-	struct l_genl_attr attr, nested;
-	uint16_t type, len;
-	const void *data;
+	struct l_genl_attr nested;
+	struct iovec iov;
 
-	if (l_genl_msg_get_error(msg) < 0 || !l_genl_attr_init(&attr, msg)) {
+	if (l_genl_msg_get_error(msg) < 0 ||
+			nl80211_parse_attrs(msg, NL80211_ATTR_KEY, &nested,
+						NL80211_ATTR_UNSPEC) < 0) {
 		l_error("GET_KEY failed for the GTK: %i",
 			l_genl_msg_get_error(msg));
 		return NULL;
 	}
 
-	while (l_genl_attr_next(&attr, &type, &len, &data)) {
-		if (type != NL80211_ATTR_KEY)
-			continue;
-
-		break;
-	}
-
-	if (type != NL80211_ATTR_KEY || !l_genl_attr_recurse(&attr, &nested)) {
+	if (nl80211_parse_nested(&nested, NL80211_ATTR_KEY, NL80211_KEY_SEQ,
+					&iov, NL80211_ATTR_UNSPEC)) {
 		l_error("Can't recurse into ATTR_KEY in GET_KEY reply");
 		return NULL;
 	}
 
-	while (l_genl_attr_next(&nested, &type, &len, &data)) {
-		if (type != NL80211_KEY_SEQ)
-			continue;
-
-		break;
-	}
-
-	if (type != NL80211_KEY_SEQ) {
-		l_error("KEY_SEQ not returned in GET_KEY reply");
-		return NULL;
-	}
-
-	if (len != 6) {
+	if (iov.iov_len != 6) {
 		l_error("KEY_SEQ length != 6 in GET_KEY reply");
 		return NULL;
 	}
 
-	return data;
+	return iov.iov_base;
 }
 
 struct l_genl_msg *nl80211_build_cmd_frame(uint32_t ifindex,
@@ -571,4 +736,42 @@ int nl80211_parse_supported_frequencies(struct l_genl_attr *band_freqs,
 	}
 
 	return 0;
+}
+
+void nl80211_append_rsn_attributes(struct l_genl_msg *msg,
+						struct handshake_state *hs)
+{
+	uint32_t nl_cipher;
+	uint32_t nl_akm;
+	uint32_t wpa_version;
+
+	nl_cipher = ie_rsn_cipher_suite_to_cipher(hs->pairwise_cipher);
+	L_WARN_ON(!nl_cipher);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_CIPHER_SUITES_PAIRWISE,
+					4, &nl_cipher);
+
+	nl_cipher = ie_rsn_cipher_suite_to_cipher(hs->group_cipher);
+	L_WARN_ON(!nl_cipher);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_CIPHER_SUITE_GROUP,
+					4, &nl_cipher);
+
+	if (hs->mfp) {
+		uint32_t use_mfp = NL80211_MFP_REQUIRED;
+
+		l_genl_msg_append_attr(msg, NL80211_ATTR_USE_MFP, 4, &use_mfp);
+	}
+
+	nl_akm = ie_rsn_akm_suite_to_akm(hs->akm_suite);
+	L_WARN_ON(!nl_akm);
+	l_genl_msg_append_attr(msg, NL80211_ATTR_AKM_SUITES, 4, &nl_akm);
+
+	if (IE_AKM_IS_SAE(hs->akm_suite))
+		wpa_version = NL80211_WPA_VERSION_3;
+	else if (hs->wpa_ie)
+		wpa_version = NL80211_WPA_VERSION_1;
+	else
+		wpa_version = NL80211_WPA_VERSION_2;
+
+	l_genl_msg_append_attr(msg, NL80211_ATTR_WPA_VERSIONS,
+						4, &wpa_version);
 }

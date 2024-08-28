@@ -621,6 +621,8 @@ unsigned char *ie_tlv_builder_finalize(struct ie_tlv_builder *builder,
 uint32_t ie_rsn_cipher_suite_to_cipher(enum ie_rsn_cipher_suite suite);
 const char *ie_rsn_cipher_suite_to_string(enum ie_rsn_cipher_suite suite);
 
+uint32_t ie_rsn_akm_suite_to_akm(enum ie_rsn_akm_suite akm);
+
 int ie_parse_rsne(struct ie_tlv_iter *iter, struct ie_rsn_info *info);
 int ie_parse_rsne_from_data(const uint8_t *data, size_t len,
 				struct ie_rsn_info *info);
@@ -632,7 +634,6 @@ int ie_parse_wpa_from_data(const uint8_t *data, size_t len,
 						struct ie_rsn_info *info);
 bool is_ie_wfa_ie(const uint8_t *data, uint8_t len, uint8_t oi_type);
 bool is_ie_wpa_ie(const uint8_t *data, uint8_t len);
-bool is_ie_default_sae_group_oui(const uint8_t *data, uint16_t len);
 
 bool ie_build_wpa(const struct ie_rsn_info *info, uint8_t *to);
 

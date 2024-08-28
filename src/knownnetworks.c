@@ -123,6 +123,17 @@ void __network_config_parse(const struct l_settings *settings,
 
 		l_strfreev(modes);
 	}
+
+	if (l_settings_has_key(settings, NET_USE_DEFAULT_ECC_GROUP)) {
+		if (l_settings_get_bool(settings,
+					NET_USE_DEFAULT_ECC_GROUP, &b)) {
+			config->ecc_group = b ? KNOWN_NETWORK_ECC_GROUP_DEFAULT
+					: KNOWN_NETWORK_ECC_GROUP_MOST_SECURE;
+		} else
+			l_warn("[%s].%s is not a boolean value",
+					NET_USE_DEFAULT_ECC_GROUP);
+	} else
+		config->ecc_group = KNOWN_NETWORK_ECC_GROUP_AUTO;
 }
 
 void __network_info_init(struct network_info *info,
@@ -174,9 +185,10 @@ static const char *known_network_get_path(const struct network_info *network)
 
 	for (i = 0; network->ssid[i] && pos < sizeof(path); i++)
 		pos += snprintf(path + pos, sizeof(path) - pos, "%02x",
-				network->ssid[i]);
+				(unsigned char)network->ssid[i]);
 
-	snprintf(path + pos, sizeof(path) - pos, "_%s",
+	if (pos < sizeof(path))
+		snprintf(path + pos, sizeof(path) - pos, "_%s",
 			security_to_str(network->type));
 	path[sizeof(path) - 1] = '\0';
 
@@ -467,6 +479,10 @@ void known_network_update(struct network_info *network,
 	known_network_set_autoconnect(network, new->is_autoconnectable);
 
 	memcpy(&network->config, new, sizeof(struct network_config));
+
+	WATCHLIST_NOTIFY(&known_network_watches,
+				known_networks_watch_func_t,
+				KNOWN_NETWORKS_EVENT_UPDATED, network);
 }
 
 bool known_networks_foreach(known_networks_foreach_func_t function,
@@ -512,8 +528,23 @@ struct network_info *known_networks_find(const char *ssid,
 	return l_queue_find(known_networks, network_info_match, &query);
 }
 
+static void known_network_append_frequencies(const struct network_info *info,
+						struct scan_freq_set *set,
+						uint8_t max)
+{
+	const struct l_queue_entry *entry;
+
+	for (entry = l_queue_get_entries(info->known_frequencies); entry && max;
+					entry = entry->next, max--) {
+		const struct known_frequency *known_freq = entry->data;
+
+		scan_freq_set_add(set, known_freq->frequency);
+	}
+}
+
 struct scan_freq_set *known_networks_get_recent_frequencies(
-						uint8_t num_networks_tosearch)
+						uint8_t num_networks_tosearch,
+						uint8_t freqs_per_network)
 {
 	/*
 	 * This search function assumes that the known networks are always
@@ -522,10 +553,9 @@ struct scan_freq_set *known_networks_get_recent_frequencies(
 	 * list.
 	 */
 	const struct l_queue_entry *network_entry;
-	const struct l_queue_entry *freq_entry;
 	struct scan_freq_set *set;
 
-	if (!num_networks_tosearch)
+	if (!num_networks_tosearch || !freqs_per_network)
 		return NULL;
 
 	set = scan_freq_set_new();
@@ -536,14 +566,8 @@ struct scan_freq_set *known_networks_get_recent_frequencies(
 						num_networks_tosearch--) {
 		const struct network_info *network = network_entry->data;
 
-		for (freq_entry = l_queue_get_entries(
-						network->known_frequencies);
-				freq_entry; freq_entry = freq_entry->next) {
-			const struct known_frequency *known_freq =
-							freq_entry->data;
-
-			scan_freq_set_add(set, known_freq->frequency);
-		}
+		known_network_append_frequencies(network, set,
+							freqs_per_network);
 	}
 
 	return set;

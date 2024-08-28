@@ -110,6 +110,9 @@ bool eapol_calculate_mic(enum ie_rsn_akm_suite akm, const uint8_t *kck,
 		case IE_RSN_AKM_SUITE_OSEN:
 			return cmac_aes(kck, 16, frame, frame_len,
 						mic, mic_len);
+		case IE_RSN_AKM_SUITE_FT_OVER_8021X_SHA384:
+			return hmac_sha384(kck, 24, frame, frame_len,
+						mic, mic_len);
 		case IE_RSN_AKM_SUITE_OWE:
 			switch (mic_len) {
 			case 16:
@@ -163,6 +166,10 @@ bool eapol_verify_mic(enum ie_rsn_akm_suite akm, const uint8_t *kck,
 		case IE_RSN_AKM_SUITE_FT_OVER_SAE_SHA256:
 		case IE_RSN_AKM_SUITE_OSEN:
 			checksum = l_checksum_new_cmac_aes(kck, 16);
+			break;
+		case IE_RSN_AKM_SUITE_FT_OVER_8021X_SHA384:
+			checksum = l_checksum_new_hmac(L_CHECKSUM_SHA384,
+							kck, 24);
 			break;
 		case IE_RSN_AKM_SUITE_OWE:
 			switch (mic_len) {
@@ -270,6 +277,7 @@ uint8_t *eapol_decrypt_key_data(enum ie_rsn_akm_suite akm, const uint8_t *kek,
 		case IE_RSN_AKM_SUITE_FT_OVER_SAE_SHA256:
 		case IE_RSN_AKM_SUITE_OWE:
 		case IE_RSN_AKM_SUITE_OSEN:
+		case IE_RSN_AKM_SUITE_FT_OVER_8021X_SHA384:
 			if (key_data_len < 24 || key_data_len % 8)
 				return NULL;
 
@@ -315,6 +323,7 @@ uint8_t *eapol_decrypt_key_data(enum ie_rsn_akm_suite akm, const uint8_t *kek,
 	case EAPOL_KEY_DESCRIPTOR_VERSION_AKM_DEFINED:
 		switch (akm) {
 		case IE_RSN_AKM_SUITE_OWE:
+		case IE_RSN_AKM_SUITE_FT_OVER_8021X_SHA384:
 			switch (mic_len) {
 			case 16:
 				kek_len = 16;
@@ -378,6 +387,23 @@ error:
 	return NULL;
 }
 
+static int padded_aes_wrap(const uint8_t *kek, uint8_t *key_data,
+				size_t *key_data_len,
+				struct eapol_key *out_frame, size_t mic_len)
+{
+	if (*key_data_len < 16 || *key_data_len % 8)
+		key_data[(*key_data_len)++] = 0xdd;
+	while (*key_data_len < 16 || *key_data_len % 8)
+		key_data[(*key_data_len)++] = 0x00;
+
+	if (!aes_wrap(kek, key_data, *key_data_len,
+				EAPOL_KEY_DATA(out_frame, mic_len)))
+		return -ENOPROTOOPT;
+
+	*key_data_len += 8;
+	return 0;
+}
+
 /*
  * Pad and encrypt the plaintext Key Data contents in @key_data using
  * the encryption scheme required by @out_frame->key_descriptor_version,
@@ -386,12 +412,12 @@ error:
  * Note that for efficiency @key_data is being modified, including in
  * case of failure, so it must be sufficiently larger than @key_data_len.
  */
-static int eapol_encrypt_key_data(const uint8_t *kek, uint8_t *key_data,
-				size_t key_data_len,
+static int eapol_encrypt_key_data(enum ie_rsn_akm_suite akm, const uint8_t *kek,
+				uint8_t *key_data, size_t key_data_len,
 				struct eapol_key *out_frame, size_t mic_len)
 {
 	uint8_t key[32];
-	bool ret;
+	int ret;
 
 	switch (out_frame->key_descriptor_version) {
 	case EAPOL_KEY_DESCRIPTOR_VERSION_HMAC_MD5_ARC4:
@@ -417,18 +443,23 @@ static int eapol_encrypt_key_data(const uint8_t *kek, uint8_t *key_data,
 		break;
 	case EAPOL_KEY_DESCRIPTOR_VERSION_HMAC_SHA1_AES:
 	case EAPOL_KEY_DESCRIPTOR_VERSION_AES_128_CMAC_AES:
-		if (key_data_len < 16 || key_data_len % 8)
-			key_data[key_data_len++] = 0xdd;
-		while (key_data_len < 16 || key_data_len % 8)
-			key_data[key_data_len++] = 0x00;
-
-		if (!aes_wrap(kek, key_data, key_data_len,
-					EAPOL_KEY_DATA(out_frame, mic_len)))
-			return -ENOPROTOOPT;
-
-		key_data_len += 8;
+		ret = padded_aes_wrap(kek, key_data, &key_data_len,
+					out_frame, mic_len);
+		if (ret < 0)
+			return ret;
 
 		break;
+	case EAPOL_KEY_DESCRIPTOR_VERSION_AKM_DEFINED:
+		switch (akm) {
+		case IE_RSN_AKM_SUITE_SAE_SHA256:
+			ret = padded_aes_wrap(kek, key_data, &key_data_len,
+						out_frame, mic_len);
+			if (ret < 0)
+				return ret;
+			break;
+		default:
+			return -ENOTSUP;
+		}
 	}
 
 	l_put_be16(key_data_len, EAPOL_KEY_DATA(out_frame, mic_len) - 2);
@@ -478,8 +509,7 @@ bool eapol_verify_ptk_1_of_4(const struct eapol_key *ek, size_t mic_len,
 	if (ek->key_mic)
 		return false;
 
-	if (ek->secure != ptk_complete)
-		return false;
+	L_WARN_ON(ek->secure != ptk_complete);
 
 	if (ek->encrypted_key_data)
 		return false;
@@ -1104,8 +1134,8 @@ static void eapol_send_ptk_1_of_4(struct eapol_sm *sm)
 	memcpy(ek->key_nonce, sm->handshake->anonce, sizeof(ek->key_nonce));
 
 	/* Write the PMKID KDE into Key Data field unencrypted */
-	crypto_derive_pmkid(sm->handshake->pmk, sm->handshake->spa, aa,
-			pmkid, false);
+	crypto_derive_pmkid(sm->handshake->pmk, 32, sm->handshake->spa, aa,
+			pmkid, L_CHECKSUM_SHA1);
 
 	eapol_key_data_append(ek, sm->mic_len, HANDSHAKE_KDE_PMKID, pmkid, 16);
 
@@ -1226,12 +1256,7 @@ static void eapol_handle_ptk_1_of_4(struct eapol_sm *sm,
 		if (!found)
 			goto error_unspecified;
 	} else if (pmkid) {
-		uint8_t own_pmkid[16];
-
-		if (!handshake_state_get_pmkid(sm->handshake, own_pmkid))
-			goto error_unspecified;
-
-		if (l_secure_memcmp(pmkid, own_pmkid, 16)) {
+		if (!handshake_state_pmkid_matches(sm->handshake, pmkid)) {
 			l_debug("Authenticator sent a PMKID that didn't match");
 
 			/*
@@ -1296,7 +1321,8 @@ static void eapol_handle_ptk_1_of_4(struct eapol_sm *sm,
 		ies_len = ies[1] + 2;
 
 		ies_len += append_ie(ies + ies_len, sm->handshake->mde);
-		ies_len += append_ie(ies + ies_len, sm->handshake->fte);
+		ies_len += append_ie(ies + ies_len,
+					sm->handshake->authenticator_fte);
 	} else {
 		ies_len = append_ie(ies, own_ie);
 	}
@@ -1430,6 +1456,19 @@ static void eapol_send_ptk_3_of_4(struct eapol_sm *sm)
 		key_data_len += gtk_kde[1] + 2;
 	}
 
+	if (sm->handshake->mfp) {
+		enum crypto_cipher group_management_cipher =
+			ie_rsn_cipher_suite_to_cipher(
+				sm->handshake->group_management_cipher);
+		uint8_t *igtk_kde = key_data_buf + key_data_len;
+
+		handshake_util_build_igtk_kde(group_management_cipher,
+						sm->handshake->igtk,
+						sm->handshake->igtk_index,
+						igtk_kde);
+		key_data_len += igtk_kde[1] + 2;
+	}
+
 	if (sm->handshake->support_ip_allocation &&
 			!sm->handshake->client_ip_addr) {
 		handshake_event(sm->handshake, HANDSHAKE_EVENT_P2P_IP_REQUEST);
@@ -1463,8 +1502,9 @@ static void eapol_send_ptk_3_of_4(struct eapol_sm *sm)
 	}
 
 	kek = handshake_state_get_kek(sm->handshake);
-	key_data_len = eapol_encrypt_key_data(kek, key_data_buf,
-						key_data_len, ek, sm->mic_len);
+	key_data_len = eapol_encrypt_key_data(sm->handshake->akm_suite, kek,
+						key_data_buf, key_data_len, ek,
+						sm->mic_len);
 	explicit_bzero(key_data_buf, sizeof(key_data_buf));
 
 	if (key_data_len < 0)
@@ -1556,6 +1596,7 @@ static void eapol_handle_ptk_2_of_4(struct eapol_sm *sm,
 	size_t ptk_size;
 	const uint8_t *kck;
 	const uint8_t *aa = sm->handshake->aa;
+	enum l_checksum_type type;
 
 	l_debug("ifindex=%u", sm->handshake->ifindex);
 
@@ -1567,12 +1608,16 @@ static void eapol_handle_ptk_2_of_4(struct eapol_sm *sm,
 
 	ptk_size = handshake_state_get_ptk_size(sm->handshake);
 
+	type = L_CHECKSUM_SHA1;
+	if (sm->handshake->akm_suite == IE_RSN_AKM_SUITE_SAE_SHA256)
+		type = L_CHECKSUM_SHA256;
+
 	if (!crypto_derive_pairwise_ptk(sm->handshake->pmk,
 					sm->handshake->pmk_len,
 					sm->handshake->spa, aa,
 					sm->handshake->anonce, ek->key_nonce,
 					sm->handshake->ptk, ptk_size,
-					L_CHECKSUM_SHA1))
+					type))
 		return;
 
 	kck = handshake_state_get_kck(sm->handshake);
@@ -1792,7 +1837,7 @@ static void eapol_handle_ptk_3_of_4(struct eapol_sm *sm,
 		if (eapol_ie_matches(decrypted_key_data,
 					decrypted_key_data_size,
 					IE_TYPE_FAST_BSS_TRANSITION,
-					hs->fte) < 0)
+					hs->authenticator_fte) < 0)
 			goto error_ie_different;
 	}
 
@@ -2086,6 +2131,10 @@ static void eapol_handle_ptk_4_of_4(struct eapol_sm *sm,
 		return;
 
 	if (L_BE64_TO_CPU(ek->key_replay_counter) != sm->replay_counter)
+		return;
+
+	/* Ensure we received Message 2 and thus have a PTK to verify MIC */
+	if (!sm->handshake->have_snonce)
 		return;
 
 	kck = handshake_state_get_kck(sm->handshake);
@@ -2528,7 +2577,7 @@ static void eapol_eap_results_cb(const uint8_t *msk_data, size_t msk_len,
 	if (sm->handshake->support_fils && emsk_data && session_id)
 		erp_cache_add(eap_get_identity(sm->eap), session_id,
 				session_len, emsk_data, emsk_len,
-				(const char *)sm->handshake->ssid);
+				sm->handshake->ssid, sm->handshake->ssid_len);
 
 	return;
 
@@ -2783,6 +2832,8 @@ void eapol_register(struct eapol_sm *sm)
 
 bool eapol_start(struct eapol_sm *sm)
 {
+	l_debug("");
+
 	if (sm->handshake->settings_8021x) {
 		_auto_(l_free) char *network_id = NULL;
 

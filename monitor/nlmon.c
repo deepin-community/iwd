@@ -96,7 +96,6 @@ enum msg_type {
 
 struct nlmon {
 	uint16_t id;
-	struct l_io *io;
 	struct l_io *pae_io;
 	struct l_queue *req_list;
 	struct pcap *pcap;
@@ -1394,31 +1393,22 @@ static void print_ie_ht_operation(unsigned int level, const char *label,
 }
 
 static void print_spatial_stream_map(unsigned int level, const char *label,
-					const uint8_t *map)
+					const uint8_t *map,
+					const char **stream_map)
 {
-	static const char *spatial_streams[] = {
-		"0 - MCS 0-7 supported",
-		"1 - MCS 0-8 supported",
-		"2 - MCS 0-9 supported",
-		"3 - No MCS support",
-	};
+	unsigned int i;
+	unsigned int j = 0;
 
-	print_attr(level + 1, "%s 1 Streams: %s", label,
-				spatial_streams[bit_field(map[0], 0, 2)]);
-	print_attr(level + 1, "%s 2 Streams: %s", label,
-				spatial_streams[bit_field(map[0], 2, 2)]);
-	print_attr(level + 1, "%s 3 Streams: %s", label,
-				spatial_streams[bit_field(map[0], 4, 2)]);
-	print_attr(level + 1, "%s 4 Streams: %s", label,
-				spatial_streams[bit_field(map[0], 6, 2)]);
-	print_attr(level + 1, "%s 5 Streams: %s", label,
-				spatial_streams[bit_field(map[1], 0, 2)]);
-	print_attr(level + 1, "%s 6 Streams: %s", label,
-				spatial_streams[bit_field(map[1], 2, 2)]);
-	print_attr(level + 1, "%s 7 Streams: %s", label,
-				spatial_streams[bit_field(map[1], 4, 2)]);
-	print_attr(level + 1, "%s 8 Streams: %s", label,
-				spatial_streams[bit_field(map[1], 6, 2)]);
+	for (i = 0; i < 8; i++, j += 2) {
+		unsigned int byte = (i < 4) ? 0 : 1;
+		uint8_t field = bit_field(map[byte], j % 8, 2);
+
+		if (field == 3)
+			continue;
+
+		print_attr(level + 1, "%s %u Streams: %s", label, i + 1,
+				stream_map[field]);
+	}
 }
 
 static void print_ie_vht_operation(unsigned int level, const char *label,
@@ -1430,6 +1420,13 @@ static void print_ie_vht_operation(unsigned int level, const char *label,
 		"2 - 160 Mhz",
 		"3 - 80+80 Mhz",
 	};
+
+	static const char *spatial_streams[] = {
+		"MCS 0-7 supported",
+		"MCS 0-8 supported",
+		"MCS 0-9 supported",
+	};
+
 	uint8_t *bytes = (uint8_t *) data;
 
 	if (size < 5) {
@@ -1443,7 +1440,8 @@ static void print_ie_vht_operation(unsigned int level, const char *label,
 	print_attr(level + 1, "Channel Center Frequency 1: %d", bytes[1]);
 	print_attr(level + 1, "Channel Center Frequency 2: %d", bytes[2]);
 
-	print_spatial_stream_map(level + 1, "Basic VHT-MCS", bytes + 3);
+	print_spatial_stream_map(level + 1, "Basic VHT-MCS", bytes + 3,
+					spatial_streams);
 }
 
 static const char *extended_capabilities_bitfield[80] = {
@@ -1656,6 +1654,13 @@ static void print_ie_vht_capabilities(unsigned int level,
 		[29] = "TX Antenna Pattern Consistency",
 		[30 ... 31] = "Extended NSS BW Support",
 	};
+
+	static const char *spatial_streams[] = {
+		"MCS 0-7 supported",
+		"MCS 0-8 supported",
+		"MCS 0-9 supported",
+	};
+
 	uint8_t info_mask[] = { 0xf0, 0x18, 0x78, 0x30 };
 
 	print_attr(level, "%s: len %u", label, size);
@@ -1666,14 +1671,66 @@ static void print_ie_vht_capabilities(unsigned int level,
 	print_ie_bitfield(level + 1, "VHT Capabilities Info", data, info_mask,
 				4, vht_capabilities_info_bitfield);
 
-	print_spatial_stream_map(level + 1, "RxVHT-MCS", data + 4);
+	print_spatial_stream_map(level + 1, "RxVHT-MCS", data + 4,
+					spatial_streams);
 	print_attr(level + 1, "Rx Highest Supported Long GI Data Rate: %d",
 			l_get_le16(data + 6) & 0x1f);
-	print_spatial_stream_map(level + 1, "TxVHT-MCS", data + 8);
+	print_spatial_stream_map(level + 1, "TxVHT-MCS", data + 8,
+					spatial_streams);
 	print_attr(level + 1, "Tx Highest Supported Long GI Data Rate: %d",
 			l_get_le16(data + 10) & 0x1f);
 	if (test_bit(data + 4, 61))
 		print_attr(level + 1, "VHT Extended NSS BW Capable");
+}
+
+static void print_ie_he_capabilities(unsigned int level,
+					const char *label,
+					const void *data, uint16_t size)
+{
+	const uint8_t *ptr = data;
+	uint8_t width_set = bit_field((ptr + 6)[0], 1, 7);
+	uint8_t mask = 0x3f;
+
+	const char *he_channel_width_bitfield[] = {
+		[0] = "40MHz supported (2.4GHz)",
+		[1] = "40MHz/80MHz supported (5GHz/6GHz)",
+		[2] = "160MHz supported (5GHz/6GHz)",
+		[3] = "160MHz/80+80MHz supported (5GHz/6GHz)",
+		[4] = "242-tone RUs (2.4GHz)",
+		[5] = "242-tone RUs (5GHz/6GHz)",
+	};
+
+	static const char *spatial_streams[] = {
+		"MCS 0-7 supported",
+		"MCS 0-9 supported",
+		"MCS 0-11 supported",
+	};
+
+	print_attr(level, "%s: len %u", label, size);
+
+	print_ie_bitfield(level + 1, "HE supported channel width set",
+			&width_set, &mask, 1, he_channel_width_bitfield);
+
+	if (test_bit(&width_set, 1) || test_bit(&width_set, 0)) {
+		print_spatial_stream_map(level + 1, "Rx HE-MCS Map <= 80MHz",
+						data + 17, spatial_streams);
+		print_spatial_stream_map(level + 1, "Tx HE-MCS Map <= 80MHz",
+						data + 19, spatial_streams);
+	}
+
+	if (test_bit(&width_set, 2)) {
+		print_spatial_stream_map(level + 1, "Rx HE-MCS Map 160MHz",
+						data + 21, spatial_streams);
+		print_spatial_stream_map(level + 1, "Tx HE-MCS Map 160MHz",
+						data + 23, spatial_streams);
+	}
+
+	if (test_bit(&width_set, 3)) {
+		print_spatial_stream_map(level + 1, "Rx HE-MCS Map 80+80MHz",
+						data + 25, spatial_streams);
+		print_spatial_stream_map(level + 1, "Tx HE-MCS Map 80+80MHz",
+						data + 27, spatial_streams);
+	}
 }
 
 static void print_ie_rm_enabled_caps(unsigned int level,
@@ -2395,6 +2452,86 @@ static void print_reduced_neighbor_report(unsigned int level, const char *label,
 	}
 }
 
+static void print_neighbor_report(unsigned int level, const char *label,
+					const void *data, uint16_t size)
+{
+	struct ie_tlv_iter iter;
+	struct ie_neighbor_report_info info;
+
+	const char *phy_type_table[] = {
+		[0] = NULL,
+		[1] = NULL,
+		[2] = "DSSS",
+		[3] = NULL,
+		[4] = "OFDM",
+		[5] = "HDRSSS",
+		[6] = "ERP",
+		[7] = "HT",
+		[8] = "DMG",
+		[9] = "VHT",
+		[10] = "TVHT",
+		[11] = "S1G",
+		[12] = "CDMG",
+		[13] = "CMMG",
+		[14] = "HE"
+	};
+
+	ie_tlv_iter_init(&iter, data - 2, size + 2);
+
+	if (!ie_tlv_iter_next(&iter))
+		return;
+
+	if (ie_parse_neighbor_report(&iter, &info) < 0) {
+		print_attr(level, "Invalid Neighbor report");
+		return;
+	}
+
+	print_attr(level, "Neighbor Report for "MAC, MAC_STR(info.addr));
+	print_attr(level + 1, "Operating Class: %u", info.oper_class);
+	print_attr(level + 1, "Channel Number: %u", info.channel_num);
+
+	if (info.phy_type <= 14 && phy_type_table[info.phy_type])
+		print_attr(level + 1, "Phy Type: %s",
+				phy_type_table[info.phy_type]);
+	else
+		print_attr(level + 1, "Phy Type: Unknown (%u)", info.phy_type);
+
+	if (info.bss_transition_pref_present)
+		print_attr(level + 1, "BSS Transition Preference: %u",
+				info.bss_transition_pref);
+
+	switch (info.reachable) {
+	case 1:
+		print_attr(level + 1, "Reachability: Not Reachable");
+		break;
+	case 2:
+		print_attr(level + 1, "Reachability: Unknown");
+		break;
+	case 3:
+		print_attr(level + 1, "Reachability: Reachable");
+		break;
+	default:
+		break;
+	}
+
+	print_attr(level + 1, "BSSID Information");
+
+	if (info.security)
+		print_attr(level + 2, "Security bit set");
+	if (info.key_scope)
+		print_attr(level + 2, "Key scope bit set");
+	if (info.spectrum_mgmt)
+		print_attr(level + 2, "Spectrum Mgmt bit set");
+	if (info.qos)
+		print_attr(level + 2, "QoS bit set");
+	if (info.apsd)
+		print_attr(level + 2, "APSD bit set");
+	if (info.md)
+		print_attr(level + 2, "MD bit set");
+	if (info.ht)
+		print_attr(level + 2, "HT bit set");
+}
+
 static struct attr_entry ie_entry[] = {
 	{ IE_TYPE_SSID,				"SSID",
 		ATTR_CUSTOM,	{ .function = print_ie_ssid } },
@@ -2430,6 +2567,8 @@ static struct attr_entry ie_entry[] = {
 		ATTR_CUSTOM,	{ .function = print_ie_ht_capabilities } },
 	{ IE_TYPE_VHT_CAPABILITIES,		"VHT Capabilities",
 		ATTR_CUSTOM,	{ .function = print_ie_vht_capabilities } },
+	{ IE_TYPE_HE_CAPABILITIES, 		"HE Capabilities",
+		ATTR_CUSTOM,	{ .function = print_ie_he_capabilities } },
 	{ IE_TYPE_RM_ENABLED_CAPABILITIES,	"RM Enabled Capabilities",
 		ATTR_CUSTOM,	{ .function = print_ie_rm_enabled_caps } },
 	{ IE_TYPE_INTERWORKING,			"Interworking",
@@ -2461,6 +2600,8 @@ static struct attr_entry ie_entry[] = {
 		ATTR_CUSTOM,	{ .function = print_reduced_neighbor_report } },
 	{ IE_TYPE_RSNX,				"RSNX",
 		ATTR_CUSTOM,	{ .function = print_rsnx } },
+	{ IE_TYPE_NEIGHBOR_REPORT,		"Neighbor Report",
+		ATTR_CUSTOM,	{ .function = print_neighbor_report } },
 	{ },
 };
 
@@ -2701,7 +2842,7 @@ static void print_wsc_configuration_error(unsigned int level, const char *label,
 		"Message timeout",
 		"Registration session timeout",
 		"Device Password Auth Failure",
-		"60 Ghz channel not supported",
+		"60 GHz channel not supported",
 		"Public Key Hash Mismatch",
 	};
 
@@ -4920,6 +5061,7 @@ static void print_rm_action_frame(unsigned int level, const uint8_t *body,
 		print_rm_request(level + 1, body + 1, body_len - 1);
 		break;
 	case 1:
+	case 5:
 		print_rm_report(level + 1, body + 1, body_len - 1);
 		break;
 	}
@@ -5068,6 +5210,26 @@ static void print_probe_response(unsigned int level,
 			(const uint8_t *) mmpdu + len - resp->ies);
 }
 
+static void print_probe_request(unsigned int level,
+				const struct mmpdu_header *mmpdu, size_t len)
+{
+	const struct mmpdu_probe_request *req = mmpdu_body(mmpdu);
+
+	print_attr(level, "Subtype: Probe Request");
+	print_ie(level + 1, "Probe Request IEs", req->ies,
+			(const uint8_t *) mmpdu + len - req->ies);
+}
+
+static void print_beacon(unsigned int level,
+				const struct mmpdu_header *mmpdu, size_t len)
+{
+	const struct mmpdu_beacon *beacon = mmpdu_body(mmpdu);
+
+	print_attr(level, "Subtype: Beacon");
+	print_ie(level + 1, "Beacon IEs", beacon->ies,
+			(const uint8_t *) mmpdu + len - beacon->ies);
+}
+
 static void print_frame_type(unsigned int level, const char *label,
 					const void *data, uint16_t size)
 {
@@ -5095,7 +5257,10 @@ static void print_frame_type(unsigned int level, const char *label,
 
 	switch (subtype) {
 	case 0x00:
-		str = "Association request";
+		if (mpdu)
+			str = "Association request";
+		else
+			str = "Association request (invalid MPDU)";
 		break;
 	case 0x01:
 		if (mpdu)
@@ -5104,43 +5269,58 @@ static void print_frame_type(unsigned int level, const char *label,
 			str = "Association response";
 		break;
 	case 0x02:
-		str = "Reassociation request";
+		if (mpdu)
+			str = "Reassociation request";
+		else
+			str = "Reassociation request (invalid MPDU)";
 		break;
 	case 0x03:
-		str = "Reassociation response";
+		if (mpdu)
+			str = "Reassociation response";
+		else
+			str = "Reassociation response (invalid MPDU)";
 		break;
 	case 0x04:
-		str = "Probe request";
+		if (mpdu)
+			print_probe_request(level + 1, mpdu, size);
+		else
+			str = "Probe request (invalid MPDU)";
 		break;
 	case 0x05:
 		if (mpdu)
 			print_probe_response(level + 1, mpdu, size);
 		else
-			str = "Probe response";
+			str = "Probe response (invalid MPDU)";
 		break;
 	case 0x06:
 		str = "Timing Advertisement";
 		break;
 	case 0x08:
-		str = "Beacon";
+		if (mpdu)
+			print_beacon(level + 1, mpdu, size);
+		else
+			str = "Beacon (invalid MPDU)";
 		break;
 	case 0x09:
 		str = "ATIM";
 		break;
 	case 0x0a:
-		str = "Disassociation";
+		if (mpdu)
+			str = "Disassociation";
+		else
+			str = "Disassociation (invalid MPDU)";
 		break;
 	case 0x0b:
 		if (mpdu)
 			print_authentication_mgmt_frame(level + 1, mpdu, size);
 		else
-			str = "Authentication";
+			str = "Authentication (invalid MPDU)";
 		break;
 	case 0x0c:
 		if (mpdu)
 			print_deauthentication_mgmt_frame(level + 1, mpdu);
 		else
-			str = "Deauthentication";
+			str = "Deauthentication (invalid MPDU)";
 		break;
 	case 0x0d:
 	case 0x0e:
@@ -6240,9 +6420,10 @@ static const struct attr_entry attr_table[] = {
 	{ NL80211_ATTR_DTIM_PERIOD,
 			"DTIM Period", ATTR_U32 },
 	{ NL80211_ATTR_BEACON_HEAD,
-			"Beacon Head", ATTR_BINARY },
+			"Beacon Head",  ATTR_CUSTOM, { .function = print_frame } },
 	{ NL80211_ATTR_BEACON_TAIL,
-			"Beacon Tail", ATTR_BINARY },
+			"Beacon Tail", ATTR_CUSTOM,
+				{ .function = print_management_ies } },
 	{ NL80211_ATTR_STA_AID,
 			"Station AID", ATTR_U16 },
 	{ NL80211_ATTR_STA_FLAGS,
@@ -6520,7 +6701,8 @@ static const struct attr_entry attr_table[] = {
 	{ NL80211_ATTR_PROBE_RESP_OFFLOAD,
 			"Probe Response Offload" },
 	{ NL80211_ATTR_PROBE_RESP,
-			"Probe Response" },
+			"Probe Response", ATTR_CUSTOM,
+					{ .function = print_frame} },
 	{ NL80211_ATTR_DFS_REGION,
 			"DFS Region", ATTR_U8 },
 	{ NL80211_ATTR_DISABLE_HT,
@@ -7165,7 +7347,6 @@ static void store_message(struct nlmon *nlmon, const struct timeval *tv,
 }
 
 static void nlmon_message(struct nlmon *nlmon, const struct timeval *tv,
-					const struct tpacket_auxdata *tp,
 					const struct nlmsghdr *nlmsg)
 {
 	struct nlmon_req *req;
@@ -7203,12 +7384,6 @@ static void nlmon_message(struct nlmon *nlmon, const struct timeval *tv,
 						NULL, sizeof(status));
 			nlmon_req_free(req);
 		}
-		return;
-	}
-
-	if (!nlmon->read && nlmsg->nlmsg_type != nlmon->id) {
-		if (nlmsg->nlmsg_type == GENL_ID_CTRL)
-			store_message(nlmon, tv, nlmsg);
 		return;
 	}
 
@@ -7282,35 +7457,6 @@ void nlmon_destroy(struct nlmon *nlmon)
 	l_queue_destroy(nlmon->req_list, nlmon_req_free);
 
 	l_free(nlmon);
-}
-
-static void genl_ctrl(struct nlmon *nlmon, const void *data, uint32_t len)
-{
-	const struct genlmsghdr *genlmsg = data;
-	const struct nlattr *nla;
-	char name[GENL_NAMSIZ];
-	uint16_t id = 0;
-
-	if (genlmsg->cmd != CTRL_CMD_NEWFAMILY)
-		return;
-
-	for (nla = data + GENL_HDRLEN; NLA_OK(nla, len);
-						nla = NLA_NEXT(nla, len)) {
-		switch (nla->nla_type & NLA_TYPE_MASK) {
-		case CTRL_ATTR_FAMILY_ID:
-			id = *((uint16_t *) NLA_DATA(nla));
-			break;
-		case CTRL_ATTR_FAMILY_NAME:
-			strncpy(name, NLA_DATA(nla), GENL_NAMSIZ - 1);
-			break;
-		}
-	}
-
-	if (id == 0)
-		return;
-
-	if (!strcmp(name, NL80211_GENL_NAME))
-		nlmon->id = id;
 }
 
 static const char *scope_to_string(uint8_t scope)
@@ -8092,13 +8238,15 @@ void nlmon_print_rtnl(struct nlmon *nlmon, const struct timeval *tv,
 	int64_t aligned_size = NLMSG_ALIGN(size);
 	const struct nlmsghdr *nlmsg;
 
-	if (nlmon->nortnl)
-		return;
-
 	update_time_offset(tv);
 
 	for (nlmsg = data; NLMSG_OK(nlmsg, aligned_size);
 				nlmsg = NLMSG_NEXT(nlmsg, aligned_size)) {
+		store_netlink(nlmon, tv, NETLINK_ROUTE, nlmsg);
+
+		if (nlmon->nortnl)
+			continue;
+
 		switch (nlmsg->nlmsg_type) {
 		case NLMSG_NOOP:
 		case NLMSG_OVERRUN:
@@ -8132,177 +8280,16 @@ void nlmon_print_genl(struct nlmon *nlmon, const struct timeval *tv,
 
 	for (nlmsg = data; NLMSG_OK(nlmsg, size);
 				nlmsg = NLMSG_NEXT(nlmsg, size)) {
-		if (nlmsg->nlmsg_type == GENL_ID_CTRL)
-			genl_ctrl(nlmon, NLMSG_DATA(nlmsg),
-						NLMSG_PAYLOAD(nlmsg, 0));
-		else
-			nlmon_message(nlmon, tv, NULL, nlmsg);
-	}
-}
-
-static bool nlmon_receive(struct l_io *io, void *user_data)
-{
-	struct nlmon *nlmon = user_data;
-	struct nlmsghdr *nlmsg;
-	struct msghdr msg;
-	struct sockaddr_ll sll;
-	struct iovec iov;
-	struct cmsghdr *cmsg;
-	struct timeval copy_tv;
-	struct tpacket_auxdata copy_tp;
-	const struct timeval *tv = NULL;
-	const struct tpacket_auxdata *tp = NULL;
-	uint16_t proto_type;
-	unsigned char buf[8192];
-	unsigned char control[32];
-	ssize_t bytes_read;
-	int64_t nlmsg_len;
-	int fd;
-
-	fd = l_io_get_fd(io);
-	if (fd < 0)
-		return false;
-
-	memset(&sll, 0, sizeof(sll));
-
-	memset(&iov, 0, sizeof(iov));
-	iov.iov_base = buf;
-	iov.iov_len = sizeof(buf);
-
-	memset(&msg, 0, sizeof(msg));
-	msg.msg_name = &sll;
-	msg.msg_namelen = sizeof(sll);
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-	msg.msg_control = control;
-	msg.msg_controllen = sizeof(control);
-
-	bytes_read = recvmsg(fd, &msg, 0);
-	if (bytes_read < 0) {
-		if (errno != EAGAIN && errno != EINTR)
-			return false;
-
-		return true;
-	}
-
-	if (sll.sll_hatype != ARPHRD_NETLINK)
-		return true;
-
-	proto_type = ntohs(sll.sll_protocol);
-
-	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg;
-				cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-		if (cmsg->cmsg_level == SOL_SOCKET &&
-					cmsg->cmsg_type == SCM_TIMESTAMP) {
-			memcpy(&copy_tv, CMSG_DATA(cmsg), sizeof(copy_tv));
-			tv = &copy_tv;
+		if (nlmsg->nlmsg_type == GENL_ID_CTRL) {
+			store_message(nlmon, tv, nlmsg);
+			continue;
 		}
 
-		if (cmsg->cmsg_level == SOL_PACKET &&
-					cmsg->cmsg_type != PACKET_AUXDATA) {
-			memcpy(&copy_tp, CMSG_DATA(cmsg), sizeof(copy_tp));
-			tp = &copy_tp;
-		}
+		if (!nlmon->read && nlmsg->nlmsg_type != nlmon->id)
+			continue;
+
+		nlmon_message(nlmon, tv, nlmsg);
 	}
-
-	nlmsg_len = bytes_read;
-
-	for (nlmsg = iov.iov_base; NLMSG_OK(nlmsg, nlmsg_len);
-				nlmsg = NLMSG_NEXT(nlmsg, nlmsg_len)) {
-		switch (proto_type) {
-		case NETLINK_ROUTE:
-			store_netlink(nlmon, tv, proto_type, nlmsg);
-
-			nlmon_print_rtnl(nlmon, tv, nlmsg, nlmsg->nlmsg_len);
-			break;
-		case NETLINK_GENERIC:
-			nlmon_message(nlmon, tv, tp, nlmsg);
-			break;
-		}
-	}
-
-	return true;
-}
-
-/*
- * BPF filter to match skb->dev->type == 824 (ARPHRD_NETLINK) and
- * either match skb->protocol == 0x0000 (NETLINK_ROUTE) or match
- * skb->protocol == 0x0010 (NETLINK_GENERIC).
- */
-static struct sock_filter mon_filter[] = {
-	{ 0x28,  0,  0, 0xfffff01c },	/* ldh #hatype		*/
-	{ 0x15,  0,  3, 0x00000338 },	/* jne #824, drop	*/
-	{ 0x28,  0,  0, 0xfffff000 },	/* ldh #proto		*/
-	{ 0x15,  2,  0, 0000000000 },	/* jeq #0x0000, pass	*/
-	{ 0x15,  1,  0, 0x00000010 },	/* jeq #0x0010, pass	*/
-	{ 0x06,  0,  0, 0000000000 },	/* drop: ret #0		*/
-	{ 0x06,  0,  0, 0xffffffff },	/* pass: ret #-1	*/
-};
-
-static const struct sock_fprog mon_fprog = { .len = 7, .filter = mon_filter };
-
-static struct l_io *open_packet(const char *name)
-{
-	struct l_io *io;
-	struct sockaddr_ll sll;
-	struct packet_mreq mr;
-	struct ifreq ifr;
-	int fd, opt = 1;
-
-	fd = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
-	if (fd < 0) {
-		perror("Failed to create packet socket");
-		return NULL;
-	}
-
-	strncpy(ifr.ifr_name, name, IFNAMSIZ - 1);
-
-	if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
-		perror("Failed to get monitor index");
-		close(fd);
-		return NULL;
-	}
-
-	memset(&sll, 0, sizeof(sll));
-	sll.sll_family = AF_PACKET;
-	sll.sll_protocol = htons(ETH_P_ALL);
-	sll.sll_ifindex = ifr.ifr_ifindex;
-
-	if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) < 0) {
-		perror("Failed to bind packet socket");
-		close(fd);
-		return NULL;
-	}
-
-	memset(&mr, 0, sizeof(mr));
-	mr.mr_ifindex = ifr.ifr_ifindex;
-	mr.mr_type = PACKET_MR_ALLMULTI;
-
-	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP,
-						&mr, sizeof(mr)) < 0) {
-		perror("Failed to enable all multicast");
-		close(fd);
-		return NULL;
-	}
-
-	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,
-					&mon_fprog, sizeof(mon_fprog)) < 0) {
-		perror("Failed to enable monitor filter");
-		close(fd);
-		return NULL;
-	}
-
-	if (setsockopt(fd, SOL_SOCKET, SO_TIMESTAMP, &opt, sizeof(opt)) < 0) {
-		perror("Failed to enable monitor timestamps");
-		close(fd);
-		return NULL;
-	}
-
-	io = l_io_new(fd);
-
-	l_io_set_close_on_destroy(io, true);
-
-	return io;
 }
 
 void nlmon_print_pae(struct nlmon *nlmon, const struct timeval *tv,
@@ -8432,28 +8419,21 @@ static struct l_io *open_pae(void)
 	return io;
 }
 
-struct nlmon *nlmon_open(const char *ifname, uint16_t id, const char *pathname,
+struct nlmon *nlmon_open(uint16_t id, const char *pathname,
 				const struct nlmon_config *config)
 {
 	struct nlmon *nlmon;
-	struct l_io *io, *pae_io;
+	struct l_io *pae_io;
 	struct pcap *pcap;
 
-	io = open_packet(ifname);
-	if (!io)
-		return NULL;
-
 	pae_io = open_pae();
-	if (!pae_io) {
-		l_io_destroy(io);
+	if (!pae_io)
 		return NULL;
-	}
 
 	if (pathname) {
 		pcap = pcap_create(pathname);
 		if (!pcap) {
 			l_io_destroy(pae_io);
-			l_io_destroy(io);
 			return NULL;
 		}
 	} else
@@ -8462,11 +8442,9 @@ struct nlmon *nlmon_open(const char *ifname, uint16_t id, const char *pathname,
 
 	nlmon = nlmon_create(id, config);
 
-	nlmon->io = io;
 	nlmon->pae_io = pae_io;
 	nlmon->pcap = pcap;
 
-	l_io_set_read_handler(nlmon->io, nlmon_receive, nlmon, NULL);
 	l_io_set_read_handler(nlmon->pae_io, pae_receive, nlmon, NULL);
 
 	wlan_iface_list = l_hashmap_new();
@@ -8479,7 +8457,6 @@ void nlmon_close(struct nlmon *nlmon)
 	if (!nlmon)
 		return;
 
-	l_io_destroy(nlmon->io);
 	l_io_destroy(nlmon->pae_io);
 	l_queue_destroy(nlmon->req_list, nlmon_req_free);
 

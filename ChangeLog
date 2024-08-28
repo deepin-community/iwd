@@ -1,3 +1,87 @@
+ver 2.19:
+	Fix issue with handling flush flag for external scans.
+	Fix issue with handling SNR calculation in ranking.
+
+ver 2.18:
+	Fix issue with handling BSS with invalid HE capabilities.
+	Fix issue with neighbor reports with invalid country codes.
+	Fix issue with EAP-TTLS Start packets with L flag set.
+	Add support for enabling SAE for AP mode operation.
+
+ver 2.17:
+	Fix issue with handling deauthenticate on disconnect.
+	Fix issue with handling of rate estimation errors.
+	Fix issue with handling EAPOL frame listeners.
+
+ver 2.16:
+	Fix issue with uninitialized variable and DPP encrypt.
+	Fix issue with Access Point mode and ATTR_MAC validation.
+	Fix issue with Access Point mode and frequency attributes.
+	Fix issue with P2P and handling client info description.
+	Fix issue with P2P and handling parsing of service info.
+	Fix issue with netconfig and handling domain list.
+	Add support for forcing a default ECC group.
+
+ver 2.15:
+	Fix issue with notice events for connection timeouts.
+	Fix issue with reason code and deauthenticate event.
+	Fix issue with handling basename() functionality.
+
+ver 2.14:
+	Fix issue with accepting PTK 4/4 after receiving PTK 2/4.
+	Fix issue with frequency limit for quick scans.
+	Fix issue with limiting DHCPv4 attempts.
+
+ver 2.13:
+	Fix issue with handling netconfig and roaming conditions.
+	Fix issue with logging requirement for CMD_EXTERNAL_AUTH.
+	Fix issue with using OpenSSL 3.2 installations.
+
+ver 2.12:
+	Fix issue with DPP extra settings not being used.
+	Fix issue with DPP and PRF+ handling on AARCH64.
+	Add support for SAE password identifiers.
+
+ver 2.11:
+	Fix issue with handling iovecs with multiple IEs.
+	Fix issue with handling SAE password identifiers.
+	Fix issue with handling agent release method call.
+
+ver 2.10:
+	Fix issue with buffer overflow for 32 byte SSIDs.
+	Fix issue with deauthentication before FT work completes.
+	Fix issue with power save disabling procedure.
+
+ver 2.9:
+	Fix issue with handling certain FT failures.
+	Fix issue with handling user-disabled bands.
+	Fix issue with handling roam on beacon loss event.
+	Add support for PKEX configurator.
+	Add support for PKEX enrollee.
+
+ver 2.8:
+	Fix issue with handling OWE AKM in association reply.
+
+ver 2.7:
+	Fix issue with handling FT-8021X and SHA256 PMKID derivation.
+
+ver 2.6:
+	Add support for setting driver specific quirks.
+	Add support for disabling power saving mode.
+
+ver 2.5:
+	Fix issue with HT40+/- checks when creating chandef.
+	Fix issue with handling support for FT-8021X-SHA384.
+	Fix issue with handling secure bit check in handshake 1/4.
+	Fix issue with allowing roaming before netconfig finishes.
+	Fix issue with double free when disconnecting during FT.
+
+ver 2.4:
+	Fix issue with FT-over-Air and same channel operation.
+	Fix issue with AP mode and missing support for GTK.
+	Fix issue with AP mode and channel switch event.
+	Fix issue with SSID string conversion handling.
+
 ver 2.3:
 	Fix issue with length calculation for WMM IE.
 	Fix issue with channel number allocation off-by-one.

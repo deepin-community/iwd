@@ -1,3 +1,4 @@
+'\" t
 .\" Man page generated from reStructuredText.
 .
 .
@@ -83,6 +84,14 @@ The time interval at which the AP starts a rekey for a given station. If
 not provided a default value of 0 is used (rekeying is disabled).
 T}
 _
+T{
+DisableHT
+T}	T{
+Boolean value
+.sp
+Explicitly disable HT capabilities for this AP.
+T}
+_
 .TE
 .SS Network Authentication Settings
 .sp
@@ -142,14 +151,12 @@ is desired, the group header line must still be present:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 # Enable network configuration
 [IPv4]
 
 [other groups follow]
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .TS

@@ -331,7 +331,7 @@ bool aes_siv_encrypt(const void *key, size_t key_len, const void *in,
 	struct iovec iov[num_ad + 1];
 	uint8_t v[16];
 
-	if (ad)
+	if (ad && num_ad)
 		memcpy(iov, ad, sizeof(struct iovec) * num_ad);
 
 	iov[num_ad].iov_base = (void *)in;
@@ -390,7 +390,7 @@ bool aes_siv_decrypt(const void *key, size_t key_len, const void *in,
 	if (in_len < 16)
 		return false;
 
-	if (ad)
+	if (ad && num_ad)
 		memcpy(iov, ad, sizeof(struct iovec) * num_ad);
 
 	iov[num_ad].iov_base = (void *)out;
@@ -438,8 +438,6 @@ free_ctr:
 	l_cipher_free(ctr);
 	return false;
 }
-
-#define SWAP(a, b) do { int _t = a; a = b; b = _t; } while (0)
 
 static void arc4_set_key(struct arc4_ctx *ctx, unsigned int length,
 			 const uint8_t *key)
@@ -626,10 +624,10 @@ bool prf_sha1(const void *key, size_t key_len,
 
 /* PRF+ from RFC 5295 Section 3.1.2 (also RFC 4306 Section 2.13) */
 bool prf_plus(enum l_checksum_type type, const void *key, size_t key_len,
-		const char *label, void *out, size_t out_len,
+		void *out, size_t out_len,
 		size_t n_extra, ...)
 {
-	struct iovec iov[n_extra + 3];
+	struct iovec iov[n_extra + 2];
 	uint8_t *t = out;
 	size_t t_len = 0;
 	uint8_t count = 1;
@@ -639,24 +637,17 @@ bool prf_plus(enum l_checksum_type type, const void *key, size_t key_len,
 	ssize_t ret;
 	size_t i;
 
-	iov[1].iov_base = (void *) label;
-	iov[1].iov_len = strlen(label);
-
-	/* Include the '\0' from the label in S if extra arguments provided */
-	if (n_extra)
-		iov[1].iov_len += 1;
-
 	va_start(va, n_extra);
 
 	for (i = 0; i < n_extra; i++) {
-		iov[i + 2].iov_base = va_arg(va, void *);
-		iov[i + 2].iov_len = va_arg(va, size_t);
+		iov[i + 1].iov_base = va_arg(va, void *);
+		iov[i + 1].iov_len = va_arg(va, size_t);
 	}
 
 	va_end(va);
 
-	iov[n_extra + 2].iov_base = &count;
-	iov[n_extra + 2].iov_len = 1;
+	iov[n_extra + 1].iov_base = &count;
+	iov[n_extra + 1].iov_len = 1;
 
 	hmac = l_checksum_new_hmac(type, key, key_len);
 	if (!hmac)
@@ -666,7 +657,7 @@ bool prf_plus(enum l_checksum_type type, const void *key, size_t key_len,
 		iov[0].iov_base = t;
 		iov[0].iov_len = t_len;
 
-		if (!l_checksum_updatev(hmac, iov, n_extra + 3)) {
+		if (!l_checksum_updatev(hmac, iov, n_extra + 2)) {
 			l_checksum_free(hmac);
 			return false;
 		}
@@ -876,7 +867,8 @@ bool hkdf_extract(enum l_checksum_type type, const void *key,
 bool hkdf_expand(enum l_checksum_type type, const void *key, size_t key_len,
 			const char *info, void *out, size_t out_len)
 {
-	return prf_plus(type, key, key_len, info, out, out_len, 0);
+	return prf_plus(type, key, key_len, out, out_len, 1,
+			info, strlen(info));
 }
 
 /*
@@ -1116,9 +1108,10 @@ exit:
 }
 
 /* Defined in 802.11-2012, Section 11.6.1.3 Pairwise Key Hierarchy */
-bool crypto_derive_pmkid(const uint8_t *pmk,
+bool crypto_derive_pmkid(const uint8_t *pmk, size_t key_len,
 				const uint8_t *addr1, const uint8_t *addr2,
-				uint8_t *out_pmkid, bool use_sha256)
+				uint8_t *out_pmkid,
+				enum l_checksum_type checksum)
 {
 	uint8_t data[20];
 
@@ -1126,10 +1119,7 @@ bool crypto_derive_pmkid(const uint8_t *pmk,
 	memcpy(data + 8, addr2, 6);
 	memcpy(data + 14, addr1, 6);
 
-	if (use_sha256)
-		return hmac_sha256(pmk, 32, data, 20, out_pmkid, 16);
-	else
-		return hmac_sha1(pmk, 32, data, 20, out_pmkid, 16);
+	return hmac_common(checksum, pmk, key_len, data, 20, out_pmkid, 16);
 }
 
 enum l_checksum_type crypto_sae_hash_from_ecc_prime_len(enum crypto_sae type,
